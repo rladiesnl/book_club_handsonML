@@ -61,7 +61,7 @@ hackmd
 1.2
 </td>
 <td style="text-align:left;">
-Names and values
+Introduction to machine learning & Modeling process
 </td>
 <td style="text-align:left;">
 Introductory meeting
@@ -76,10 +76,10 @@ Ger
 R-Ladies Den Bosch and Utrecht
 </td>
 <td style="text-align:left;">
-meetup
+[meetup](https://www.meetup.com/rladies-den-bosch/events/288225262/)
 </td>
 <td style="text-align:left;">
-hackmd
+[hackmd](https://hackmd.io/EhYe_gkWScuoaVCIH6QLAg?both)
 </td>
 </tr>
 <tr>
@@ -102,7 +102,7 @@ Ale
 R-Ladies Den Bosch and Utrecht
 </td>
 <td style="text-align:left;">
-meetup
+[meetup](https://www.meetup.com/rladies-utrecht/events/288441399/)
 </td>
 <td style="text-align:left;">
 NA
