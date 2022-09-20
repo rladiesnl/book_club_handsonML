@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Hands On Machine Learning with R</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Gerbrich" />
+    <meta name="date" content="2022-09-06" />
+    <script src="slides_files/header-attrs/header-attrs.js"></script>
+    <link href="slides_files/remark-css/default.css" rel="stylesheet" />
+    <link href="slides_files/remark-css/rladies.css" rel="stylesheet" />
+    <link href="slides_files/remark-css/rladies-fonts.css" rel="stylesheet" />
+    <link href="slides_files/tile-view/tile-view.css" rel="stylesheet" />
+    <script src="slides_files/tile-view/tile-view.js"></script>
+    <link href="slides_files/xaringanExtra-extra-styles/xaringanExtra-extra-styles.css" rel="stylesheet" />
+    <script src="slides_files/xaringanExtra-webcam/webcam.js"></script>
+    <script id="xaringanExtra-webcam-options" type="application/json">{"width":"200","height":"200","margin":"1em"}</script>
+    <link href="slides_files/panelset/panelset.css" rel="stylesheet" />
+    <script src="slides_files/panelset/panelset.js"></script>
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Hands On Machine Learning with R
+]
+.subtitle[
+## Chapter 1 and 2
+]
+.author[
+### Gerbrich
+]
+.date[
+### 2022-09-06
+]
+
+---
+
+
+
+
+# Welcome!
+
+&amp;nbsp;
+
+- This meetup is part of a joint effort between RLadies Den Bosch and Utrecht  
+&amp;nbsp;
+
+--
+
+-  We meet every 2 weeks to go through a chapter of the book ["Hands-On Machine Learning with R"](https://bradleyboehmke.github.io/HOML/) by Bradley Boehme and Brandon Greenwell.
+
+&amp;nbsp;
+--
+
+- We will not record the session, but we will publish the slides. 
+
+&amp;nbsp;
+
+--- 
+
+# Some house rules
+
+- R-Ladies is dedicated to providing a harassment-free experience for everyone. We do not tolerate harassment of participants in any form.  See [the code of conduct.](https://rladies.org/code-of-conduct/)
+
+- During todays' session, we can work together in a hackmd file: https://hackmd.io/EhYe_gkWScuoaVCIH6QLAg
+
+---
+
+# What to expect
+
+- Presentations summarising the key points on each topic of the book
+
+--
+
+&amp;nbsp;
+
+- Putting the theory to practice by going through exercises together
+
+--
+
+&amp;nbsp;
+- Room to discuss questions and other thoughts
+
+--
+
+&amp;nbsp;
+- It is not necessary to read the chapters in advance, but feel free to do so.
+
+--
+
+&amp;nbsp;
+- https://hackmd.io/EhYe_gkWScuoaVCIH6QLAg
+
+
+&lt;!-- -- --&gt;
+
+&lt;!-- - Slides from previous sessions are available: https://github.com/rladiesnl/book_club --&gt;
+&lt;!-- &amp;nbsp; --&gt;
+
+---
+
+# The book 'Hands-On Machine learning with R
+
+
+
+- Mainly about supervised learning (Ch 4-14)
+
+&amp;nbsp;
+
+- Maximize effectiveness, efficiency, and interpretation of your ML models (Ch 15-16)
+
+&amp;nbsp;
+
+- Unsupervised learning (Ch 17 - 22)
+
+&amp;nbsp;
+
+--
+
+### Get experience with Machine Learning in R while minimizing theory
+
+---
+
+# Ch 1 'Introduction to Machine Learning' 
+
+
+What is a machine learning algorithm? 
+
+
+---
+
+# Supervised learners
+
+- Predictive models
+-- 
+-  "attempts to discover and model the relationships among the target variable and the other features"
+  
+&amp;nbsp;
+  
+- Target &lt;span style="color:red"&gt;Y&lt;/span&gt;, predictors &lt;span style="color:blue"&gt;X&lt;/span&gt;
+  
+
+### Examples 
+
+- Predict &lt;span style="color:red"&gt;temperature&lt;/span&gt; from &lt;span style="color:blue"&gt;time of the day &lt;/span&gt; and &lt;span style="color:blue"&gt;season&lt;/span&gt;
+
+--
+
+&amp;nbsp;
+
+- Using &lt;span style="color:blue"&gt;patient attributes&lt;/span&gt; and &lt;span style="color:blue"&gt;symptoms &lt;/span&gt; to predict the &lt;span style="color:red"&gt;risk of readmission&lt;/span&gt;
+
+&amp;nbsp;
+
+
+---
+
+## Unsupervised learners 
+  
+- Descriptive models
+
+&amp;nbsp;
+
+--
+
+- There is no target variable
+&amp;nbsp;
+
+
+### Examples
+
+--
+
+- Divide consumers into different homogeneous groups
+&amp;nbsp;
+
+--
+
+- Reduce the feature set to a potentially smaller set of uncorrelated variables 
+
+---
+
+
+### Two types of supervised learners: 
+
+--
+
+- Continuous Target Variable: Regression problem 
+&amp;nbsp;
+
+
+- Categorical Target Variable: Classification problem
+&amp;nbsp;
+
+
+--
+
+### Two types of unsupervised learners:
+--
+
+- Defined by the rows: Clustering
+&amp;nbsp;
+
+- Defined by the columns: Dimension reduction 
+&amp;nbsp;
+ 
+---
+
+# Quiz:
+
+Supervised or unsupervised? 
+
+
+---
+
+
+# Chapter 2 - Modeling process
+
+Building a machine learning model is an iterative process
+
+&lt;img src="img/modeling_process.png" style="display: block; margin: auto;" /&gt;
+
+
+---
+
+
+
+
+
+
+
+# Data splitting
+- Goal: find function `\(f(x)\)` that predicts future values `\(\hat{y}\)` based on features `\(X\)`. 
+&amp;nbsp;
+
+- To get an understanding how well our model transfers to unseen data
+
+
+---
+
+# Example from the book: Ames housing data
+
+- Property sales information 
+- 80 features
+- 2,930 observations
+
+--
+
+
+```r
+ames &lt;- AmesHousing::make_ames()
+head(ames) %&gt;% knitr::kable()
+```
+
+
+
+|MS_SubClass                         |MS_Zoning                | Lot_Frontage| Lot_Area|Street |Alley           |Lot_Shape          |Land_Contour |Utilities |Lot_Config |Land_Slope |Neighborhood |Condition_1 |Condition_2 |Bldg_Type |House_Style |Overall_Qual  |Overall_Cond  | Year_Built| Year_Remod_Add|Roof_Style |Roof_Matl |Exterior_1st |Exterior_2nd |Mas_Vnr_Type | Mas_Vnr_Area|Exter_Qual |Exter_Cond |Foundation |Bsmt_Qual |Bsmt_Cond |Bsmt_Exposure |BsmtFin_Type_1 | BsmtFin_SF_1|BsmtFin_Type_2 | BsmtFin_SF_2| Bsmt_Unf_SF| Total_Bsmt_SF|Heating |Heating_QC |Central_Air |Electrical | First_Flr_SF| Second_Flr_SF| Low_Qual_Fin_SF| Gr_Liv_Area| Bsmt_Full_Bath| Bsmt_Half_Bath| Full_Bath| Half_Bath| Bedroom_AbvGr| Kitchen_AbvGr|Kitchen_Qual | TotRms_AbvGrd|Functional | Fireplaces|Fireplace_Qu |Garage_Type |Garage_Finish | Garage_Cars| Garage_Area|Garage_Qual |Garage_Cond |Paved_Drive      | Wood_Deck_SF| Open_Porch_SF| Enclosed_Porch| Three_season_porch| Screen_Porch| Pool_Area|Pool_QC |Fence           |Misc_Feature | Misc_Val| Mo_Sold| Year_Sold|Sale_Type |Sale_Condition | Sale_Price| Longitude| Latitude|
+|:-----------------------------------|:------------------------|------------:|--------:|:------|:---------------|:------------------|:------------|:---------|:----------|:----------|:------------|:-----------|:-----------|:---------|:-----------|:-------------|:-------------|----------:|--------------:|:----------|:---------|:------------|:------------|:------------|------------:|:----------|:----------|:----------|:---------|:---------|:-------------|:--------------|------------:|:--------------|------------:|-----------:|-------------:|:-------|:----------|:-----------|:----------|------------:|-------------:|---------------:|-----------:|--------------:|--------------:|---------:|---------:|-------------:|-------------:|:------------|-------------:|:----------|----------:|:------------|:-----------|:-------------|-----------:|-----------:|:-----------|:-----------|:----------------|------------:|-------------:|--------------:|------------------:|------------:|---------:|:-------|:---------------|:------------|--------:|-------:|---------:|:---------|:--------------|----------:|---------:|--------:|
+|One_Story_1946_and_Newer_All_Styles |Residential_Low_Density  |          141|    31770|Pave   |No_Alley_Access |Slightly_Irregular |Lvl          |AllPub    |Corner     |Gtl        |North_Ames   |Norm        |Norm        |OneFam    |One_Story   |Above_Average |Average       |       1960|           1960|Hip        |CompShg   |BrkFace      |Plywood      |Stone        |          112|Typical    |Typical    |CBlock     |Typical   |Good      |Gd            |BLQ            |            2|Unf            |            0|         441|          1080|GasA    |Fair       |Y           |SBrkr      |         1656|             0|               0|        1656|              1|              0|         1|         0|             3|             1|Typical      |             7|Typ        |          2|Good         |Attchd      |Fin           |           2|         528|Typical     |Typical     |Partial_Pavement |          210|            62|              0|                  0|            0|         0|No_Pool |No_Fence        |None         |        0|       5|      2010|WD        |Normal         |     215000| -93.61975| 42.05403|
+|One_Story_1946_and_Newer_All_Styles |Residential_High_Density |           80|    11622|Pave   |No_Alley_Access |Regular            |Lvl          |AllPub    |Inside     |Gtl        |North_Ames   |Feedr       |Norm        |OneFam    |One_Story   |Average       |Above_Average |       1961|           1961|Gable      |CompShg   |VinylSd      |VinylSd      |None         |            0|Typical    |Typical    |CBlock     |Typical   |Typical   |No            |Rec            |            6|LwQ            |          144|         270|           882|GasA    |Typical    |Y           |SBrkr      |          896|             0|               0|         896|              0|              0|         1|         0|             2|             1|Typical      |             5|Typ        |          0|No_Fireplace |Attchd      |Unf           |           1|         730|Typical     |Typical     |Paved            |          140|             0|              0|                  0|          120|         0|No_Pool |Minimum_Privacy |None         |        0|       6|      2010|WD        |Normal         |     105000| -93.61976| 42.05301|
+|One_Story_1946_and_Newer_All_Styles |Residential_Low_Density  |           81|    14267|Pave   |No_Alley_Access |Slightly_Irregular |Lvl          |AllPub    |Corner     |Gtl        |North_Ames   |Norm        |Norm        |OneFam    |One_Story   |Above_Average |Above_Average |       1958|           1958|Hip        |CompShg   |Wd Sdng      |Wd Sdng      |BrkFace      |          108|Typical    |Typical    |CBlock     |Typical   |Typical   |No            |ALQ            |            1|Unf            |            0|         406|          1329|GasA    |Typical    |Y           |SBrkr      |         1329|             0|               0|        1329|              0|              0|         1|         1|             3|             1|Good         |             6|Typ        |          0|No_Fireplace |Attchd      |Unf           |           1|         312|Typical     |Typical     |Paved            |          393|            36|              0|                  0|            0|         0|No_Pool |No_Fence        |Gar2         |    12500|       6|      2010|WD        |Normal         |     172000| -93.61939| 42.05266|
+|One_Story_1946_and_Newer_All_Styles |Residential_Low_Density  |           93|    11160|Pave   |No_Alley_Access |Regular            |Lvl          |AllPub    |Corner     |Gtl        |North_Ames   |Norm        |Norm        |OneFam    |One_Story   |Good          |Average       |       1968|           1968|Hip        |CompShg   |BrkFace      |BrkFace      |None         |            0|Good       |Typical    |CBlock     |Typical   |Typical   |No            |ALQ            |            1|Unf            |            0|        1045|          2110|GasA    |Excellent  |Y           |SBrkr      |         2110|             0|               0|        2110|              1|              0|         2|         1|             3|             1|Excellent    |             8|Typ        |          2|Typical      |Attchd      |Fin           |           2|         522|Typical     |Typical     |Paved            |            0|             0|              0|                  0|            0|         0|No_Pool |No_Fence        |None         |        0|       4|      2010|WD        |Normal         |     244000| -93.61732| 42.05125|
+|Two_Story_1946_and_Newer            |Residential_Low_Density  |           74|    13830|Pave   |No_Alley_Access |Slightly_Irregular |Lvl          |AllPub    |Inside     |Gtl        |Gilbert      |Norm        |Norm        |OneFam    |Two_Story   |Average       |Average       |       1997|           1998|Gable      |CompShg   |VinylSd      |VinylSd      |None         |            0|Typical    |Typical    |PConc      |Good      |Typical   |No            |GLQ            |            3|Unf            |            0|         137|           928|GasA    |Good       |Y           |SBrkr      |          928|           701|               0|        1629|              0|              0|         2|         1|             3|             1|Typical      |             6|Typ        |          1|Typical      |Attchd      |Fin           |           2|         482|Typical     |Typical     |Paved            |          212|            34|              0|                  0|            0|         0|No_Pool |Minimum_Privacy |None         |        0|       3|      2010|WD        |Normal         |     189900| -93.63893| 42.06090|
+|Two_Story_1946_and_Newer            |Residential_Low_Density  |           78|     9978|Pave   |No_Alley_Access |Slightly_Irregular |Lvl          |AllPub    |Inside     |Gtl        |Gilbert      |Norm        |Norm        |OneFam    |Two_Story   |Above_Average |Above_Average |       1998|           1998|Gable      |CompShg   |VinylSd      |VinylSd      |BrkFace      |           20|Typical    |Typical    |PConc      |Typical   |Typical   |No            |GLQ            |            3|Unf            |            0|         324|           926|GasA    |Excellent  |Y           |SBrkr      |          926|           678|               0|        1604|              0|              0|         2|         1|             3|             1|Good         |             7|Typ        |          1|Good         |Attchd      |Fin           |           2|         470|Typical     |Typical     |Paved            |          360|            36|              0|                  0|            0|         0|No_Pool |No_Fence        |None         |        0|       6|      2010|WD        |Normal         |     195500| -93.63893| 42.06078|
+
+---
+
+# Example from the book: Ames housing data
+
+Randomly sample 70% train data and 30% test data: 
+
+&lt;img src="img/data_split.png" style="display: block; margin: auto;" /&gt;
+
+--
+
+
+```r
+set.seed(123)  # for reproducibility
+index &lt;- sample(1:nrow(ames), round(nrow(ames) * 0.7))
+train &lt;- ames[index, ]
+test  &lt;- ames[-index, ]
+```
+
+- The 'train' set is used to develop a model
+- The 'test' is used to evaluate model performance
+
+---
+
+# Example from the book: Ames housing data.
+
+
+- We want to use all the features to predict the houses' sales price.
+
+--
+
+- Supervised or unsupervised? 
+- Regression or classification?
+
+--
+
+- This problem requires supervised learning: We want to predict Y from features X
+- The outcome is a continuous variable, therefore: a regression problem 
+- In the example we will use the algorithm 'K-Nearest-Neighbours'
+
+
+---
+
+# Hyperparameter tuning for KNN 
+
+For KNN, we need to set a value for hyperparameter K
+
+
+```r
+# Create grid of hyperparameter values
+hyper_grid &lt;- expand.grid(k = seq(2, 25, by = 1))
+hyper_grid 
+```
+
+```
+    k
+1   2
+2   3
+3   4
+4   5
+5   6
+6   7
+7   8
+8   9
+9  10
+10 11
+11 12
+12 13
+13 14
+14 15
+15 16
+16 17
+17 18
+18 19
+19 20
+20 21
+21 22
+22 23
+23 24
+24 25
+```
+
+--- 
+# Resampling methods
+
+How to evaluate performance on the _training_ set? 
+
+---
+
+## K-fold cross-validation
+
+&lt;img src="img/cv.png" style="display: block; margin: auto;" /&gt;
+
+---
+
+## How to code this in R
+
+
+```r
+# Specify resampling strategy
+cv &lt;- trainControl(
+  method = "repeatedcv", 
+  number = 10, 
+  repeats = 5
+)
+```
+
+---
+
+## Bootstrapping
+Another method would be bootstrapping: Resampling data _with replacement_
+
+&lt;img src="img/bootstrap-scheme.png" style="display: block; margin: auto;" /&gt;
+
+
+---
+# Now it is time to fit the model on the training data
+
+
+```r
+# Tune a knn model using grid search
+knn_fit &lt;- train(
+  Sale_Price ~ ., 
+  data = train, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "MSE"
+)
+```
+
+--
+
+- We fit a KNN model for all different hyperparameter values (k)
+
+--
+
+- We use the MSE to evaluate performance (explained later)
+
+-- 
+
+- We resample the dataset by cross-validation 
+
+
+---
+
+# Inspect results
+
+
+```r
+knn_fit
+```
+
+```
+k-Nearest Neighbors 
+
+2051 samples
+  80 predictor
+
+No pre-processing
+Resampling: Cross-Validated (10 fold, repeated 5 times) 
+Summary of sample sizes: 1847, 1846, 1847, 1846, 1846, 1846, ... 
+Resampling results across tuning parameters:
+
+  k   RMSE      Rsquared   MAE     
+   2  47828.15  0.6498427  31159.05
+   3  45804.50  0.6750183  29964.95
+   4  44794.35  0.6877822  29435.59
+   5  44191.97  0.6966407  29171.24
+   6  43846.54  0.7030722  28843.93
+   7  43917.84  0.7038473  28901.32
+   8  44210.25  0.7012384  28940.59
+   9  44356.05  0.7011113  28927.59
+  10  44436.38  0.7021582  28892.53
+  11  44788.52  0.6991972  29058.20
+  12  44882.18  0.6997800  29125.57
+  13  45032.08  0.6994088  29200.55
+  14  45040.37  0.7014876  29203.68
+  15  45205.29  0.7006046  29273.36
+  16  45357.28  0.7005420  29331.58
+  17  45481.71  0.7007512  29431.48
+  18  45607.85  0.7008128  29548.46
+  19  45813.66  0.6993597  29711.59
+  20  45984.62  0.6980808  29809.07
+  21  46150.36  0.6968943  29884.04
+  22  46278.53  0.6966031  29945.11
+  23  46528.35  0.6944754  30113.41
+  24  46646.91  0.6943490  30222.69
+  25  46792.58  0.6937549  30351.28
+
+RMSE was used to select the optimal model using the smallest value.
+The final value used for the model was k = 6.
+```
+
+---
+
+
+```r
+ggplot(knn_fit)
+```
+
+&lt;img src="slides_files/figure-html/unnamed-chunk-13-1.png" width="504" style="display: block; margin: auto;" /&gt;
+---
+
+# Model evaluation 
+
+Predictive accuracy of a model is assessed by some loss function.
+
+
+
+## For regression models
+For example: difference betwen actual and predicted values, squared: 
+
+`$$MSE = \frac{1}{n} \sum^n_{i=1} (y_{i} - \hat{y})^2$$`
+
+--
+
+The smaller the MSE, the more accurate a model can predict `\(y\)`. 
+
+## For classification models
+For example: in how many cases does the model predict the correct category?
+
+`$$accuracy = \frac{TP + TN}{n}$$`
+---
+
+# Extra: Bias-variance tradeoff 
+## There are two types of prediction errors.. 
+
+_Bias_ = how far off are you models predictions from the true value?
+- sense of how well the model conforms to the underlying structure in the data
+
+
+
+&lt;img src="img/modeling-process-bias-model-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Extra: Bias-variance tradeoff
+## There are two types of prediction errors.. 
+
+_Variance_ = the variability of a model prediction for a given data point
+- overfitting
+&lt;img src="img/modeling-process-variance-model-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Share your experience 
+
+
+---
+# .fancy[Thank you!]
+
+--
+## Next meeting: 26th of September
+
+--
+
+## Presenters for the upcoming chapters:
+
+- Chapter 3 - ...
+- Chapter 4 - ... 
+- Chapter 15 - Brandon Greenwell
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

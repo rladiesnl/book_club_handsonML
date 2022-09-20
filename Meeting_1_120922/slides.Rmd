@@ -1,0 +1,461 @@
+---
+title: "Hands On Machine Learning with R"
+subtitle: "Chapter 1 and 2"
+author: "Gerbrich"
+date: "2022-09-06"
+output: 
+  xaringan::moon_reader:
+    css: ["default", "rladies", "rladies-fonts"]
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r, echo = FALSE, include=FALSE}
+
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, comment = "", cache = FALSE, 
+                      echo = T, fig.retina = 3, fig.align = 'center')
+
+library(xaringan)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(stringr)
+library(magrittr)
+
+xaringanExtra::use_tile_view()
+xaringanExtra::use_logo(
+  image_url = "R-LadiesGlobal.png",
+  width = "50px")
+xaringanExtra::use_extra_styles(
+  hover_code_line = TRUE,         #<<
+  mute_unhighlighted_code = TRUE  #<<
+)
+xaringanExtra::use_webcam()
+xaringanExtra::use_panelset()
+
+```
+
+# Welcome!
+
+&nbsp;
+
+- This meetup is part of a joint effort between RLadies Den Bosch and Utrecht  
+&nbsp;
+
+--
+
+-  We meet every 2 weeks to go through a chapter of the book ["Hands-On Machine Learning with R"](https://bradleyboehmke.github.io/HOML/) by Bradley Boehme and Brandon Greenwell.
+
+&nbsp;
+--
+
+- We will not record the session, but we will publish the slides. 
+
+&nbsp;
+
+--- 
+
+# Some house rules
+
+- R-Ladies is dedicated to providing a harassment-free experience for everyone. We do not tolerate harassment of participants in any form.  See [the code of conduct.](https://rladies.org/code-of-conduct/)
+
+- During todays' session, we can work together in a hackmd file: https://hackmd.io/EhYe_gkWScuoaVCIH6QLAg
+
+---
+
+# What to expect
+
+- Presentations summarising the key points on each topic of the book
+
+--
+
+&nbsp;
+
+- Putting the theory to practice by going through exercises together
+
+--
+
+&nbsp;
+- Room to discuss questions and other thoughts
+
+--
+
+&nbsp;
+- It is not necessary to read the chapters in advance, but feel free to do so.
+
+--
+
+&nbsp;
+- https://hackmd.io/EhYe_gkWScuoaVCIH6QLAg
+
+
+<!-- -- -->
+
+<!-- - Slides from previous sessions are available: https://github.com/rladiesnl/book_club -->
+<!-- &nbsp; -->
+
+---
+
+# The book 'Hands-On Machine learning with R
+
+
+
+- Mainly about supervised learning (Ch 4-14)
+
+&nbsp;
+
+- Maximize effectiveness, efficiency, and interpretation of your ML models (Ch 15-16)
+
+&nbsp;
+
+- Unsupervised learning (Ch 17 - 22)
+
+&nbsp;
+
+--
+
+### Get experience with Machine Learning in R while minimizing theory
+
+---
+
+# Ch 1 'Introduction to Machine Learning' 
+
+
+What is a machine learning algorithm? 
+
+
+---
+
+# Supervised learners
+
+- Predictive models
+-- 
+-  "attempts to discover and model the relationships among the target variable and the other features"
+  
+&nbsp;
+  
+- Target <span style="color:red">Y</span>, predictors <span style="color:blue">X</span>
+  
+
+### Examples 
+
+- Predict <span style="color:red">temperature</span> from <span style="color:blue">time of the day </span> and <span style="color:blue">season</span>
+
+--
+
+&nbsp;
+
+- Using <span style="color:blue">patient attributes</span> and <span style="color:blue">symptoms </span> to predict the <span style="color:red">risk of readmission</span>
+
+&nbsp;
+
+
+---
+
+## Unsupervised learners 
+  
+- Descriptive models
+
+&nbsp;
+
+--
+
+- There is no target variable
+&nbsp;
+
+
+### Examples
+
+--
+
+- Divide consumers into different homogeneous groups
+&nbsp;
+
+--
+
+- Reduce the feature set to a potentially smaller set of uncorrelated variables 
+
+---
+
+
+### Two types of supervised learners: 
+
+--
+
+- Continuous Target Variable: Regression problem 
+&nbsp;
+
+
+- Categorical Target Variable: Classification problem
+&nbsp;
+
+
+--
+
+### Two types of unsupervised learners:
+--
+
+- Defined by the rows: Clustering
+&nbsp;
+
+- Defined by the columns: Dimension reduction 
+&nbsp;
+ 
+---
+
+# Quiz:
+
+Supervised or unsupervised? 
+
+
+---
+
+
+# Chapter 2 - Modeling process
+
+Building a machine learning model is an iterative process
+
+```{r echo = FALSE}
+knitr::include_graphics("img/modeling_process.png")
+```
+
+
+---
+
+```{r, include = FALSE}
+# Helper packages
+library(dplyr)     # for data manipulation
+library(ggplot2)   # for awesome graphics
+
+# Modeling process packages
+library(rsample)   # for resampling procedures
+library(caret)     # for resampling and model training
+
+```
+
+
+
+
+
+# Data splitting
+- Goal: find function $f(x)$ that predicts future values $\hat{y}$ based on features $X$. 
+&nbsp;
+
+- To get an understanding how well our model transfers to unseen data
+
+
+---
+
+# Example from the book: Ames housing data
+
+- Property sales information 
+- 80 features
+- 2,930 observations
+
+--
+
+```{r}
+ames <- AmesHousing::make_ames()
+head(ames) %>% knitr::kable()
+```
+
+---
+
+# Example from the book: Ames housing data
+
+Randomly sample 70% train data and 30% test data: 
+
+```{r echo = FALSE}
+knitr::include_graphics("img/data_split.png")
+```
+
+--
+
+```{r}
+set.seed(123)  # for reproducibility
+index <- sample(1:nrow(ames), round(nrow(ames) * 0.7))
+train <- ames[index, ]
+test  <- ames[-index, ]
+```
+
+- The 'train' set is used to develop a model
+- The 'test' is used to evaluate model performance
+
+---
+
+# Example from the book: Ames housing data.
+
+
+- We want to use all the features to predict the houses' sales price.
+
+--
+
+- Supervised or unsupervised? 
+- Regression or classification?
+
+--
+
+- This problem requires supervised learning: We want to predict Y from features X
+- The outcome is a continuous variable, therefore: a regression problem 
+- In the example we will use the algorithm 'K-Nearest-Neighbours'
+
+
+---
+
+# Hyperparameter tuning for KNN 
+
+For KNN, we need to set a value for hyperparameter K
+
+```{r}
+# Create grid of hyperparameter values
+hyper_grid <- expand.grid(k = seq(2, 25, by = 1))
+hyper_grid 
+```
+
+--- 
+# Resampling methods
+
+How to evaluate performance on the _training_ set? 
+
+---
+
+## K-fold cross-validation
+
+```{r echo = FALSE}
+knitr::include_graphics("img/cv.png")
+```
+
+---
+
+## How to code this in R
+
+```{r}
+# Specify resampling strategy
+cv <- trainControl(
+  method = "repeatedcv", 
+  number = 10, 
+  repeats = 5
+)
+```
+
+---
+
+## Bootstrapping
+Another method would be bootstrapping: Resampling data _with replacement_
+
+```{r echo = FALSE}
+knitr::include_graphics("img/bootstrap-scheme.png")
+```
+
+
+---
+# Now it is time to fit the model on the training data
+
+```{r cache = TRUE}
+# Tune a knn model using grid search
+knn_fit <- train(
+  Sale_Price ~ ., 
+  data = train, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "MSE"
+)
+```
+
+--
+
+- We fit a KNN model for all different hyperparameter values (k)
+
+--
+
+- We use the MSE to evaluate performance (explained later)
+
+-- 
+
+- We resample the dataset by cross-validation 
+
+
+---
+
+# Inspect results
+
+```{r}
+knn_fit
+```
+
+---
+
+```{r}
+ggplot(knn_fit)
+```
+---
+
+# Model evaluation 
+
+Predictive accuracy of a model is assessed by some loss function.
+
+
+
+## For regression models
+For example: difference betwen actual and predicted values, squared: 
+
+$$MSE = \frac{1}{n} \sum^n_{i=1} (y_{i} - \hat{y})^2$$
+
+--
+
+The smaller the MSE, the more accurate a model can predict $y$. 
+
+## For classification models
+For example: in how many cases does the model predict the correct category?
+
+$$accuracy = \frac{TP + TN}{n}$$
+---
+
+# Extra: Bias-variance tradeoff 
+## There are two types of prediction errors.. 
+
+_Bias_ = how far off are you models predictions from the true value?
+- sense of how well the model conforms to the underlying structure in the data
+
+
+
+```{r, echo = FALSE}
+knitr::include_graphics("img/modeling-process-bias-model-1.png")
+```
+
+---
+
+# Extra: Bias-variance tradeoff
+## There are two types of prediction errors.. 
+
+_Variance_ = the variability of a model prediction for a given data point
+- overfitting
+```{r, echo = FALSE}
+knitr::include_graphics("img/modeling-process-variance-model-1.png")
+```
+
+---
+
+# Share your experience 
+
+
+---
+# .fancy[Thank you!]
+```{r echo = FALSE, out.width="40%"}
+#knitr::include_graphics("files/thankyou.gif")
+```
+--
+## Next meeting: 26th of September
+
+--
+
+## Presenters for the upcoming chapters:
+
+- Chapter 3 - ...
+- Chapter 4 - ... 
+- Chapter 15 - Brandon Greenwell

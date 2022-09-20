@@ -1,0 +1,77 @@
+---
+output: github_document
+always_allow_html: true
+editor_options: 
+  chunk_output_type: console
+---
+```{r, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, size = 3)
+library(tidyverse)
+library(kableExtra)
+library(googlesheets4)
+library(lubridate)
+
+mytable <- function(df){
+  kable(df) %>%
+  kable_styling(bootstrap_options = c("hover", "condensed", "responsive"),
+                full_width = F,
+                font_size = 12)}
+```
+
+## Welcome to R-Ladies Netherlands Book Club &#x1F4DA; &#x1f1f3;&#x1f1f1;!!
+
+R-Ladies chapters from the Netherlands are gathering forces to host online book clubs!
+Currently, we are working on 
+["Hands-on Machine Learning in R"](https://bradleyboehmke.github.io/HOML/) 
+by Bradley Boehme and Brandon Greenwell.
+
+
+### Previous book clubs
+
+- [**Advanced R**](https://adv-r.hadley.nz/) by Hadley Wickham.
+
+### What to expect?
+
+  - Highlight the key points on each topic of the book with a presentation.
+  
+  - Go together through the exercises.
+  
+  - Discuss and clarify doubts.
+  
+   
+### When?
+
+The events will be hosted every two weeks by different R-Ladies chapters, on Mondays at 7pm, via Zoom.
+
+### Current agenda:
+
+```{r, include = FALSE}
+
+url <- ("https://docs.google.com/spreadsheets/d/1bNFuUWCARwyKGFMk2o0a6zs0x_cR-apKRgyJxxofI-c/edit?usp=sharing") 
+
+gs4_deauth()
+
+data <- read_sheet(url) %>% 
+  janitor::clean_names() %>% 
+  mutate(date = as.character(date)) %>%
+  select(chapter, title, description, speaker, date, hosted_by, event, hackmd)
+```
+
+```{r, echo=FALSE}
+data %>% 
+filter(!is.na(speaker)) %>% 
+  mytable() %>% 
+  row_spec(0, bold = T, color = " white", background = "#562457")
+```
+To join the event, click at the link on our **_Current agenda_**!
+
+Sign-up to present a topic by contacting the organizers via meetup: Veerle or Martine [here](https://www.meetup.com/rladies-den-bosch/members/?op=leaders), Ger or Ale [here](https://www.meetup.com/rladies-utrecht/members/?op=leaders).
+
+
+<br><br>
+
+**Looking forward to see you soon!**
+
+
+<img src="R-LadiesGlobal_RBG_online_LogoWithText_Horizontal.png" width="300" height="100" />
+
