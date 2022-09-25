@@ -84,10 +84,10 @@ R-Ladies Den Bosch and Utrecht
 </tr>
 <tr>
 <td style="text-align:left;">
-3, 4
+3
 </td>
 <td style="text-align:left;">
-Feature & Target Engineering’ and ‘Linear Regression’
+Feature & Target Engineering’
 </td>
 <td style="text-align:left;">
 NA
@@ -105,7 +105,7 @@ R-Ladies Den Bosch and Utrecht
 [meetup](https://www.meetup.com/rladies-utrecht/events/288441399/)
 </td>
 <td style="text-align:left;">
-NA
+[hackMD](https://hackmd.io/@Alejandra/SyaQJo4-o/edit)
 </td>
 </tr>
 <tr>
@@ -122,7 +122,7 @@ NA
 Marianna
 </td>
 <td style="text-align:left;">
-2022-10-10
+2022-10-24
 </td>
 <td style="text-align:left;">
 NA
@@ -148,7 +148,7 @@ NA
 Elina
 </td>
 <td style="text-align:left;">
-2022-10-24
+2022-11-07
 </td>
 <td style="text-align:left;">
 NA
@@ -174,7 +174,7 @@ NA
 Veerle
 </td>
 <td style="text-align:left;">
-2022-11-07
+2022-11-21
 </td>
 <td style="text-align:left;">
 NA
