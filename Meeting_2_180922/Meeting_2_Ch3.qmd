@@ -1,0 +1,683 @@
+---
+title: "Hands-On Machine Learning with R"
+author: "Alejandra Hernandez Segura"
+format:
+  revealjs: 
+    theme: [default, assets/rladies.scss]
+    width: 1200
+    scrollable: true
+    echo: true
+    fig-align: "center"
+editor: visual
+---
+
+```{r}
+#| include: false
+  
+library(fontawesome)
+```
+
+## Welcome (back)! {.middle}
+
+-   Organized by @RLadiesUtrecht and @RLadiesDenBosch
+
+-   Meet-ups every 2 weeks to go through a chapter of the book ["Hands-On Machine Learning with R"](https://bradleyboehmke.github.io/HOML/) by Bradley Boehme and Brandon Greenwell
+
+-   No session recording!But we will publish the slides and notes!
+
+-   We use HackMD for making shared notes and for the registry
+
+## How to use HackMD? {.center}
+
+<p align="center">
+
+<a href="https://hackmd.io/@Alejandra/SyaQJo4-o/edit"><iframe width="950" height="500" src="https://hackmd.io/@Alejandra/SyaQJo4-o/edit" alt="Frame of our HackMD document of this week" display="block"></iframe></a>
+
+</p>
+
+::: aside
+https://hackmd.io/@Alejandra/SyaQJo4-o/edit
+:::
+
+## House rules {.smaller}
+
+::: incremental
+-   Remember the [R-Ladies code of conduct](https://rladies.org/code-of-conduct/). In summary, please be nice to each other and help us make an **inclusive** meeting! [`r fa("heart")`]{style="{\"color\":\"purple\"}"}
+
+-   The meeting will NOT BE RECORDED but the slides will be shared!
+
+-   Please list your name in the registry
+
+    -   Make sure you're in the edit mode (ctrl + alt + e) when trying to edit the file! You'll know you're in the edit mode if the background is black :8ball:
+
+-   Please keep your mic off during the presentation. It is nice if you have the camera on and participate to make the meeting more interactive. Of course you can have your camera off if you prefer
+
+-   If you have questions, raise your hand or write your question in HackMD or in the chat.
+:::
+
+## What did we learn last time? {.smaller}
+
+::: incremental
+-   **Supervised learners** predict. They can be continuous or categorical
+
+-   **Unsupervised learners** describe. They can be defined by rows (clustering) or columns (dimension reduction). Building a machine learning model is an iterative process
+
+-   **Splitting data** into training (\~70%) and testing data (\~30%)
+
+-   You usually do a **K-fold cross-validation**
+
+-   **Bootstrapping:** re-sampling data with replacement. It is an alternative to K-fold cross validation.
+
+-   **Bias:** how far off are your models prediction from the true value
+
+-   **Variance:** the variability of a model prediction (eg. overfitting -\> no error in training data)
+:::
+
+## The dataset {.smaller}
+
+-   Property sales information as described in De Cock (2011).
+    -   **problem type:** supervised regression
+    -   **response variable:** `Sale_Price` (i.e., \$195,000, \$215,000)
+    -   **features:** 80
+    -   **observations:** 2,930
+    -   **objective:** use property attributes to predict the sale price of a home
+    -   **access:** provided by the AmesHousing package (Kuhn 2017a)
+    -   **more details:** See `?AmesHousing::ames_raw`
+
+```{r}
+# access data
+ames <- AmesHousing::make_ames()
+
+# response variable
+head(ames$Sale_Price)
+
+# Stratified sampling with the rsample package
+set.seed(123)
+split <- rsample::initial_split(ames, prop = 0.7, 
+                       strata = "Sale_Price")
+ames_train  <- rsample::training(split)
+ames_test   <- rsample::testing(split)
+
+```
+
+# Chapter 3: Feature and Target Engineering
+
+. . .
+
+<br> <br>
+
+> Live with your data before you plunge into modeling
+
+<br>
+
+. . .
+
+::: {.smaller .righttxt}
+Breiman and others 2001, 201
+:::
+
+## Data Processing and engineering
+
+> addition, deletion, or transformation of data
+
+**Important packages:**
+
+```{r, warning=FALSE, message=FALSE}
+
+# Helper packages
+library(dplyr)
+library(ggplot2)
+library(visdat)
+
+# Feature engineering packages
+library(caret)
+library(recipes)
+
+# Modeling packages
+library(caret)    # for cross-validation, etc.
+
+# Model interpretability packages
+library(vip)      # variable importance
+
+```
+
+## Target engineering
+
+![](assets/optimus-prime-trucker.gif){fig-alt="GIF of the 'transformer' Optimus Prime" fig-align="center"}
+
+## 
+
+```{r}
+ames_recipe <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_log(all_outcomes())
+```
+
+![Transforming the response variable to minimize skewness can resolve concerns with non-normally distributed errors](assets/2_engineering-skewed-residuals-1.png){fig-alt="Distribution of the residuals with and without log transformation. The log-transformed ones follow a normal distribution and fix the skewedness of the non-log transformed ones." out.width="60%" fig-align="center"}
+
+::: notes
+-   Can lead to predictive improvement
+
+-   Especially important for parametric models (that require assumptions)
+
+-   Remember to undo the transformation before interpreting!
+:::
+
+## Dealing with missingness
+
+![](assets/something-feels-missing-the-encore.gif){fig-alt="GIF of a woman saying 'Something feels missing'" fig-align="center"}
+
+## Why do we miss data? {.smaller}
+
+::: incremental
+-   *Informative missingness*: structural cause. E.g. deficiencies in data collection, abnormalities in the observational environment.
+    -   May get their own 'category' (e.g. `None`) to not affect predictability
+-   *Missingness at random*: independent of data collection
+    -   May be deleted or imputed
+
+### What do we do if we miss data?
+
+-   Most models need you to handle missingness!!!
+
+-   Few models (mainly tree-based) deal with missing values already
+
+-   **Note:** Often you will compare multiple models during your analysis process, so you often have to handle missing values anyway!
+:::
+
+## Visualize missing values {.smaller}
+
+::: columns
+::: {.column width="35%"}
+We will use the raw data:
+
+    AmesHousing::ames_raw %>%
+      is.na() %>%
+      reshape2::melt() %>%
+      ggplot(aes(Var2, Var1, fill=value)) + 
+        geom_raster() + 
+        coord_flip() +
+        scale_y_continuous(NULL, expand = c(0, 0)) +
+        scale_fill_grey(name = "", 
+                        labels = c("Present", 
+                                   "Missing")) +
+        xlab("Observation") +
+        theme(axis.text.y  = element_text(size = 4))
+:::
+
+::: {.column width="65%"}
+```{r, out.width="120%"}
+#| echo: false
+AmesHousing::ames_raw %>%
+  is.na() %>%
+  reshape2::melt() %>%
+  ggplot(aes(Var2, Var1, fill=value)) + 
+    geom_raster() + 
+    coord_flip() +
+    scale_y_continuous(NULL, expand = c(0, 0)) +
+    scale_fill_grey(name = "", 
+                    labels = c("Present", 
+                               "Missing")) +
+    xlab("Observation") +
+    theme(axis.text.y  = element_text(size = 4))
+```
+:::
+:::
+
+```{r}
+AmesHousing::ames_raw %>% 
+  filter(is.na(`Garage Type`)) %>% 
+  select(`Garage Type`, `Garage Cars`, `Garage Area`)
+```
+
+## Imputation {.smaller}
+
+> Imputation is the process of replacing a missing value with a substituted, "best guess" value
+
+Different ways to impute data:
+
+-   Estimated statistic: mean, median or mode
+    -   Simplistic\
+-   Group statistics: capture expected values based on similar groups
+    -   Infeasible for larger datasets
+-   Modeling imputation: use a model to impute data. Often K-nearest neighbor and tree-based imputation
+    -   Computationally demanding
+
+```{r}
+ames_recipe %>%
+  step_impute_median(Gr_Liv_Area)
+```
+
+:: {.incremental}
+
+### Imputation with K-nearest neighbor (KNN) {.smaller}
+
+1.  Identifies observations with missing values
+2.  Identifies other observations that are similar based on the other available features
+3.  Uses the values from these nearest neighbor observations to impute missing values.
+
+```{r}
+# Number of neighbors can be chosen!
+ames_recipe %>%
+  step_impute_knn(all_predictors(), neighbors = 6)
+```
+
+### Imputation with tree-based methods {.smaller}
+
+-   Often can be constructed in the presence of missing values
+
+-   Some (like random forest) are computationally demanding. Others (like bagged trees) can be a good compromise between accuracy and computational burden.
+
+1.  Observations with missing values are identified
+2.  Feature containing the missing value is treated as the target and predicted using bagged decision trees
+
+```{r}
+ames_recipe %>%
+  step_impute_bag(all_predictors())
+```
+
+:::
+
+## 
+
+![Comparison of three different imputation methods.](assets/2_imputation.png){fig-alt="Panel of four scatter plots showing the Ames data with the actual values and how the three different methods discussed (mean imputation, KNN imputation and bagged trees imputation would imput the data"}
+
+## Feature filtering {.smaller}
+
+-   When we have too many features!
+    -   Hard to interpret
+    -   Computationally costly
+    -   Many are non-informative predictors --\> some models resist this disadvantage (e.g. the Lasso and tree-based methods)
+-   Near-zero variance variables are easy to eliminate!
+    -   The fraction of unique values over the sample size is low (≤ 10%)
+    -   The ratio of the frequency of the most prevalent value to the frequency of the second most prevalent value is large (≥20%)
+
+```{r}
+caret::nearZeroVar(ames_train, saveMetrics = TRUE) %>% 
+  tibble::rownames_to_column() %>% 
+  filter(nzv)
+```
+
+-   We can add `step_zv()` and `step_nzv()` to our `ames_recipe` to remove zero or near-zero variance features.
+
+## Numeric feature engineering {.middle}
+
+::: columns
+::: column
+-   Problems:
+
+    -   Skeweness
+    -   Outliers
+    -   Wide range of magnitudes
+
+-   Tree-based models are relatively immune to these problems
+:::
+
+::: column
+![](assets/math-calculate.gif){fig-alt="GIF of woman that seems to be struggling with math calculations."}
+:::
+:::
+
+## Numeric feature engineering. Skewness {.smaller}
+
+**Option 1:** log transformation.
+
+```{r}
+# Single step
+transformed_response <- log(ames_train$Sale_Price)
+
+# As a recipe --> better to be re-applied strategically
+ames_recipe <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_log(all_outcomes())
+ames_recipe
+
+```
+
+**Note:** negative values or zero will produce `NaN` and `-Inf`! To solve that you can apply a small offset
+
+```{r}
+# Single step. Will ad 1 to the value before log transforming
+transformed_response_1off <- log1p(ames_train$Sale_Price)
+
+# As a recipe. Will apply an offset of 1
+ames_recipe_1off <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_log(all_outcomes(), offset=1)
+
+```
+
+## Numeric feature engineering. Skewness {.smaller}
+
+**Option 2:** use a Box Cox transformation. It will find an appropriate transformation from a family of power transforms that will transform the variable as close as possible to a normal distribution (Box and Cox 1964; Carroll and Ruppert 1981).
+
+-   At the core of the Box Cox transformation is an exponent, lambda (λ), which varies from -5 to 5.
+
+-   All values of λ are considered. Best one is chosen from training data and applied to training AND test set.
+
+-   If your response has negative values, the Yeo-Johnson transformation is very similar to the Box-Cox but does not require the input variables to be strictly positive. To apply, use `step_YeoJohnson()`.
+
+![Response variable transformations.](assets/2_engineering-distribution-comparison-1.png){fig.alt="Distributions of the dataset without transformation (skewed), with log transformation (normal distributed) and with BoxCox transformation (also normal)." out.width="60%" fig-align="center"}
+
+## Numeric feature engineering. Standardization {.smaller}
+
+::: incremental
+-   What are the largest and smallest values across all features and do they span several orders of magnitude?
+
+    -   Especially important for algorithms using linear functions!
+
+![Standardizing features allows all features to be compared on a common value scale regardless of their real value differences.](assets/2_standardizing-1.png){fig-alt="Dot plots comparing the distribution of values before and after standardization. The values of the standardized variables seem more comparable because they are in the same scale."}
+
+```{r}
+ames_recipe %>%
+  step_center(all_numeric(), -all_outcomes()) %>%
+  step_scale(all_numeric(), -all_outcomes())
+```
+:::
+
+## Categorical feature engineering {.middle}
+
+-   Most models require numeric predictors
+
+-   Even if they don't, models often benefit from pre-processing of categorical variables
+
+![](assets/weird_category.gif){fig-alt="GIF of a blogger reviewing a product and saying 'This fits in the kind of weird, unique, strange, category'." fig-align="center"}
+
+## Categorical feature engineering. Lumping {.smaller}
+
+::: incremental
+-   'Lumping' means collapsing data into less categories
+
+-   Useful when some of your categories are almost empty
+
+```{r}
+count(ames_train, Neighborhood) %>% arrange(n)
+```
+
+```{r}
+# Lump levels for two features
+lumping <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_other(Neighborhood, threshold = 0.01, 
+             other = "other") %>%
+  step_other(Screen_Porch, threshold = 0.1, 
+             other = ">0")
+
+# Apply this blue print --> you will learn about this at 
+# the end of the chapter
+apply_2_training <- prep(lumping, training = ames_train) %>%
+  bake(ames_train)
+
+# New distribution of Neighborhood
+count(apply_2_training, Neighborhood) %>% arrange(n)
+```
+:::
+
+## Categorical feature engineering. One-hot and dummy encoding {.smaller}
+
+::: incremental
+-   Two common methods:
+
+![Eight observations containing a categorical feature X and the difference in how one-hot and dummy encoding transforms this feature.](assets/2_ohe-vs-dummy.png){fig-alt="Diagram showing one-hot encoding in which each categorical variable becomes a boolean. To avoid collinearity, the dummy encoding does the same but dropping one of the levels." fig-align="center"}
+
+```{r}
+recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_dummy(all_nominal(), one_hot = TRUE)
+```
+:::
+
+::: notes
+-   Dummy encoding helps avoiding perfect collinearity
+:::
+
+## Categorical feature engineering. Ordinal encoding {.smaller}
+
+```{r}
+count(ames_train, Overall_Qual)
+```
+
+```{r}
+recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_integer(Overall_Qual) %>%
+  prep(ames_train) %>%
+  bake(ames_train) %>%
+  count(Overall_Qual)
+```
+
+[WARNING!!!]{style="color:red"} Models often take these labels as numeric! Careful when you use them in variables that are not ordinal.
+
+::: notes
+There are other types of categorical encoding. The book mentions 'target encoding' but I skip it because it causes data leakage.
+:::
+
+## Dimension reduction
+
+-   Alternative to filter out non-informative features without manually removing them
+
+-   Principal Component Analysis is a well-known approach
+
+    -   You can then retain components that explain \~95% of the variance
+
+::: columns
+::: column
+```{r}
+recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_center(all_numeric()) %>%
+  step_scale(all_numeric()) %>%
+  step_pca(all_numeric(), threshold = .95)
+```
+:::
+
+::: column
+![](assets/menger-sponge.gif){fig-alt="GIF of a fractal moving and getting closer, representing different dimensions" fig-align="right"}
+:::
+:::
+
+::: notes
+-   It will be discussed in ch. 17-19
+:::
+
+## Proper implementation {.smaller}
+
+::: columns
+::: column
+::: incremental
+-   Use **sequential steps**: some pre-processing may affect other steps and therefore the model!
+
+    -   Filter out zero or near-zero variance features
+    -   Imputation
+    -   Resolve skewness (normalize)
+    -   Standardize (center and scale) numeric features
+    -   Dimension reduction on numeric features
+    -   One-hot or dummy encode categorical features
+:::
+:::
+
+::: column
+![](assets/recipe.gif){fig-alt="GIF of woman saying that she wants a recipe" fig-align="right"}
+:::
+:::
+
+::: incremental
+-   Beware of **data leakage**: so info outside the training data is used to create the model.
+
+    -   Apply the transformations after each re-sampling step.
+
+-   Put the steps together into a pipeline/workflow/recipe and then apply it to the data
+:::
+
+::: notes
+-   Don't center data before Box-Cox transformation. You may get non-positive values.
+
+-   Lumping infrequent categories before one-hot/dummy encoding.
+
+-   Dimension reduction procedures are usually done only in numeric features.
+:::
+
+##  {.smaller}
+
+**Recipe**
+
+```{r, results='hide'}
+blueprint <- recipe(Sale_Price ~ ., data = ames_train) %>%
+  step_nzv(all_nominal())  %>%
+  step_integer(matches("Qual|Cond|QC|Qu")) %>%
+  step_center(all_numeric(), -all_outcomes()) %>%
+  step_scale(all_numeric(), -all_outcomes()) %>%
+  step_pca(all_numeric(), -all_outcomes())
+```
+
+**Apply it**
+
+```{r, results='hide', cache=TRUE, eval=FALSE}
+# Specify resampling plan
+cv <- trainControl(
+  method = "repeatedcv", 
+  number = 10, 
+  repeats = 5
+)
+
+# Construct grid of hyperparameter values
+hyper_grid <- expand.grid(k = seq(2, 25, by = 1))
+
+# Tune a knn model using grid search
+knn_fit2 <- train(
+  blueprint, 
+  data = ames_train, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+)
+
+```
+
+::: notes
+Remember to undo the transformation before interpreting!
+:::
+
+# Exercises
+
+## Ex. 1: With which concept do you think that 'survivorship bias' is related? {.smaller}
+
+> **Survivorship bias**, or **survival bias**, is the logical error of concentration on the people or things that 'survived' some process and inadvertently overlooking those that did not because of their lack of visibility
+
+![](assets/survival-bias.jpeg){fig-alt="Drawing of the surviving aircrafts showing the places where they got the most bullets (wings and body) and where they got (almost) no bullets (engine and fans)." fig-align="center"}
+
+-   **Original recommendation**: reinforce areas on aircrafts that suffer most damage
+
+::: notes
+-   WWII
+-   Researchers from the Center for Naval Analyses
+-   Abraham Wald (statistician) realized that aircrafts that had *not survived* the mission were not being considered. He proposed reinforcing the areas where the returning aircraft were unscathed (blue).
+:::
+
+## Answer Ex. 1: Informative missingness (missing values)
+
+::: columns
+::: column
+<br> <br> <br>
+
+**Wald's recommendation**: Reinforce areas where the returning aircraft were unscathed.
+:::
+
+::: column
+![](assets/something-feels-missing-the-encore.gif){fig-alt="GIF of woman saying 'Something feels missing'"}
+:::
+:::
+
+## Ex. 2: What kind of preparation would you do to be able to easily compare the size of the bodies in the Solar System?
+
+::: columns
+::: column
+![](assets/solar-system.png){fig-alt="Barplot showing the sizes of bodies in the solar system. Only the sun is visible."}
+:::
+
+::: column
+![](assets/solar-system-real.jpg){fig-alt="Pictures of the solar system showing the difference in sizes of different celestial bodies."}
+:::
+:::
+
+## Answer Ex. 2: Logarithmic transformation
+
+::: columns
+::: column
+<br> <br> ![](assets/solar-system-log.png){fig-alt="Barplot showing the sizes of bodies in the solar system after doing a logarithmic transformation. All the bodies are now visible."}
+:::
+
+::: column
+<br> <br> ![](assets/optimus-prime-trucker.gif){fig-alt="GIF of the transformer Optimus Prime" fig-align="center"}
+:::
+:::
+
+## How much stronger was Mexico's earthquake? Why is it difficult to interpret Richter's scale? {.smaller}
+
+. . .
+
+![](assets/bali-earthquake.png){fig-alt="Screenshot of a google search of a moderate earthquake (5 Ricther) in Bali in April 2017."}
+
+. . .
+
+![](assets/mexico-earthquake.png){fig-alt="Screenshot of a new report of a 'huge magnitude earthquake' (7.1 Richter) in central Mexico that caused massive disaster." fig-align="right"}
+
+## Answer Ex. 3: 100 times higher. Difficult to interpret because we need to re-transform before interpreting
+
+::: columns
+::: {.column width="70%"}
+> Due to the variance in earthquakes, it is essential to understand the Richter scale uses logarithms simply to make the measurements manageable (i.e., a magnitude 3 quake factors 10³ while a magnitude 5 quake is 100 times stronger than that) (Wikipedia)
+:::
+
+::: {.column width="30%"}
+![](assets/math-calculate.gif){fig-alt="GIF of woman struggling doing math calculations." fig-align="right"}
+:::
+:::
+
+## Ex. 4: Label encoding (similar to Ordinal encoding) can be good for transforming the target variable if it is categorical (not ordinal). Why? {.smaller}
+
+-   When talking about 'Ordinal Encoding' I said:
+
+> Careful when you use them in variables that are not ordinal.
+
+-   Stephen Allwright (D.S. blogger) says in his blog:
+
+> Label Encoding is a feature encoding method which takes a categorical variable and converts the unique possibilities to a sequence of numerical values.
+
+```{r}
+#| echo: false
+#| message: false
+df <- data.frame(
+  "CustomerID" = c(1,2,3),
+  "City" = c("Oslo", "Stockholm", "Copenhagen"),
+  "City_LabEncoded" = c(0,1,2)
+)
+knitr::kable(df)
+```
+
+-   Why would you assign an 'order' where there is none? Why would you use LabelEncoding instead of a One-Hot encoding?
+
+## Answer Ex.4: Label Encoding can make tree-based algorithms perform better {.smaller}
+
+::: columns
+::: column
+<br> <br>
+
+Citing Stephen Allwright again:
+
+> Label Encoding a categorical variable is a method which works best for tree-based models as these do a good job of splitting values in a feature. The tradeoff with Label Encoding is that it's not approrpiate for all types of machine learning models and it's difficult to interpet analysis such as feature importance after training.
+:::
+
+::: column
+<br> <br>
+
+![](assets/weird_category.gif){fig-alt="GIF of a blogger saying 'This fits in the kind of weird, unique, strange, category'"}
+:::
+:::
+
+## Summary {.smaller}
+
+::: {layout="[[1,1,1], [1,1]]"}
+![Target feature Engineering](assets/optimus-prime-trucker.gif)
+
+![Missing Values](assets/something-feels-missing-the-encore.gif)
+
+![Numeric feature engineering](assets/math-calculate.gif)
+
+![Categorical feature engineering](assets/weird_category.gif)
+
+![Proper Implementation](assets/recipe.gif)
+:::
