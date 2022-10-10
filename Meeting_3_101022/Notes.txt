@@ -1,0 +1,28 @@
+Notes
+
+Before I could you the Rladies template,
+- I needed to have Rstudio 2022-7 this I had already
+- I needed to upgrade quarto: https://quarto.org/docs/get-started/
+- I opened my project, and in the terminal tab, so not the console, I typed in:
+quarto install extension beatrizmilz/quarto-rladies-theme
+
+it asked me if I trust the author of the extension, I do,  so I answered Y
+And then it went on installing the RLadies template
+
+Not sure if i have to install the extension for every RLadies presentation I make, but we will see.
+
+Then in the terminal again;
+quarto use template beatrizmilz/quarto-rladies-theme
+
+it askes for a directory, i answered talk45, and that became a new directory in my project.
+Even a new r Project :), within my R project.
+So i replaced the new qmd in this directory to rthe root of my project, and 
+deleted this new folder, since the extensions where already in my root project.
+It worked, so yay.
+
+Want to make a handout?
+When you have the html, do:
+pagedown::chrome_print("path-to-file.html")
+
+
+

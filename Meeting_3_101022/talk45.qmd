@@ -1,0 +1,901 @@
+---
+title: "Chp 4 Linear Regression<BR>Chp 5 Logistic regression"
+subtitle: "Hands-on Machine Learning with R<BR>Boookclub R-Ladies Utrecht and R-Ladies Den Bosch"
+author: "[Martine Jansen](https://twitter.com/nnie_nl)"
+format: 
+  rladies-revealjs:
+    slide-number: true
+    pdf-max-pages-per-slide: 1
+incremental: true
+self-contained: true
+---
+
+## stRt {.smaller}
+
+```{r}
+library(fontawesome)
+library(patchwork)
+```
+
+-   Organized by [@RLadiesUtrecht](https://twitter.com/RLadiesUtrecht) and [@RLadiesDenBosch](https://twitter.com/RLadiesDenBosch)
+-   Meet-ups every 2 weeks on ["Hands-On Machine Learning with R"](https://bradleyboehmke.github.io/HOML/)  
+by Bradley Boehmke and Brandon Greenwell
+-   No session recording!But we will publish the slides and notes!
+-   We use HackMD for making shared notes and for the registry:<BR> [https://hackmd.io/rGu7xw2bRS-lm8lq7-wvXw](https://hackmd.io/rGu7xw2bRS-lm8lq7-wvXw)
+-   Please keep mic off during presentation. Nice to have camera on and participate to make the meeting more interactive.
+-   Questions? Raise hand / write question in HackMD or in chat
+-  Remember presenters are not necessarily also subject experts `r fa("smile", fill = "purple")`
+-  Remember the [R-Ladies code of conduct](https://rladies.org/code-of-conduct/).  
+In summary, please be nice to each other and help us make an **inclusive** meeting! `r fa("heart", fill = "purple")`
+
+
+
+## What did we talk about last time?
+
+-  Target engineering: transform outcome variable via `log`/`Box-cox`
+-  Missingness: informative/random, imputation via estimated statistic/KNN
+-  Feature filtering: remove (near)-zero variance variables
+-  Numeric feature engineering: sometimes useful to transformation to reduce skewness, standardization
+-  Categorical feature engineering: lumping, one-hot / dummy encoding, label encoding
+-  Dimension reduction: see chp 17-19
+-  Proper implementation: sequential steps, data leakage, recipes
+
+
+## Part II Supervised Learning<BR>Chp 4 Linear Regression {.center .center-x background-color="#562457"}
+
+Approximate (linear) relationship between **continuous** response variable and  set of predictor variables
+
+## 4.1 Prerequisites
+
+**Libraries**
+
+
+```{r}
+#| echo: TRUE
+
+library(dplyr)    # for data manipulation
+library(ggplot2)  # for graphics
+
+library(caret)    # for cross-validation, etc.
+library(rsample)  # you have to scroll back in the book to detect
+                  # necessary for initial_split
+library(vip)      # variable importance
+#library(pdp)     # is used in section on varible importance
+```
+
+. . .  
+
+<BR>
+
+**Code for the data, from previous chps**
+
+```{r}
+#| echo: TRUE
+ames <- AmesHousing::make_ames()
+
+set.seed(123)
+split <- initial_split(ames, prop = 0.7, 
+                       strata = "Sale_Price")
+ames_train  <- training(split)
+ames_test   <- testing(split)
+```
+
+## 4.2 Simple linear regression
+
+If Y and X are (approx) linearly related then: $Y_i = \beta_0 + \beta_1X_i + \epsilon_i \text{,   for } i = 1, ..., n, \text{   and } \epsilon_i \sim N(0,\sigma^2)$  
+
+$\beta_0$: intercept, average response when X = 0  
+$\beta_1$: slope, increase in average response per 1 unit increase in X    
+
+. . .  
+
+<BR>
+Using least squares regression, coefficients can be calculated with `lm`: 
+
+:::: {.columns}
+
+::: {.column width="45%"}
+```{r}
+#| echo: TRUE
+model1 <- lm(Sale_Price ~ Gr_Liv_Area,
+             data = ames_train)
+model1$coef
+
+```
+```{r}
+#| echo: TRUE
+sigma(model1)
+```
+
+
+:::
+
+
+
+::: {.column width="55%"}
+```{r}
+ggplot(data = ames_train,
+       aes(x = Gr_Liv_Area, y = Sale_Price)) +
+  geom_point() +
+  theme_minimal(base_size = 16) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  #geom_smooth(method = "lm", color = "blue", se = FALSE)
+  geom_abline(intercept = model1$coefficients[1],
+              slope = model1$coefficients[2],
+              color = "blue") +
+  annotate("segment", x = 4000, y = model1$coefficients[1] + model1$coefficients[2]*4000,
+           xend = 5000, yend = model1$coefficients[1] + model1$coefficients[2]*4000, color = "red") +
+  annotate("segment", x = 5000, y = model1$coefficients[1] + model1$coefficients[2]*4000,
+           xend = 5000, yend = model1$coefficients[1] + model1$coefficients[2]*5000, color = "red") +
+  annotate("text", 
+           x = 4500, 
+           y = model1$coefficients[1] + model1$coefficients[2]*4000 - 16000,
+           label = "1",
+           size = 6,
+           color = "red") +
+  annotate("text", 
+           x = 5200, 
+           y = model1$coefficients[1] + model1$coefficients[2]*4000 + 40000,
+           label = "beta[1]",
+           size = 6,
+           parse = TRUE,
+           color = "red") +
+  annotate("segment", x = 0, y = 0, size = 1.5,
+           xend = 0, yend = model1$coefficients[1], color = "red") +
+  annotate("text",
+           x = -140, y = 2.5*model1$coefficients[1],
+           label = "beta[0]",
+           size = 6,
+           parse = TRUE,
+           color = "red")
+  
+```
+
+:::
+
+::::
+
+
+## Inference
+
+- Point estimates for $\beta_0$, $\beta_1$ and $\sigma$ not that interesting
+- Need to know how much they vary
+- When these assumptions are met:
+  - independent obs
+  - random error mean zero, constant variance
+  - random error normally distributed  
+$100(1-\alpha)\%$ confidence interval: $\beta_j \pm t_{1-\alpha/2, n-p}\widehat{SE}_{\beta_j}$
+
+. . . 
+
+```{r}
+#| echo: TRUE
+confint(model1, level = 0.95)
+```
+
+---
+
+```{r}
+#| echo: TRUE
+summary(model1)
+```
+
+## 4.3 Multiple linear regression
+
+- More main effects:  
+`model2 <- lm(Sale_Price ~ Gr_Liv_Area + Year_Built, data = ames_train)`
+- Add an interaction effect with `:` :  
+`model2a <- lm(Sale_Price ~ Gr_Liv_Area + Year_Built + Gr_Liv_Area:Year_Built, data = ames_train)`
+- Add all the features in the set as main effects:  
+`model3 <- lm(Sale_Price ~ ., data = ames_train)` 
+- The analyst decides on having interaction effects in linear regression
+- When interaction effect in model, have also comprising terms in model
+
+
+```{r}
+model2 <- lm(Sale_Price ~ Gr_Liv_Area + Year_Built, data = ames_train)
+model3 <- lm(Sale_Price ~ ., data = ames_train)
+
+```
+
+
+## 4.4 Assessing model accuracy
+
+For this example, "best"model: lowest RMSE via cross-validation
+
+```{r}
+#| echo: TRUE
+set.seed(123)  # for reproducibility
+(cv_model1 <- train(
+  form = Sale_Price ~ Gr_Liv_Area, 
+  data = ames_train, 
+  method = "lm",
+  trControl = trainControl(method = "cv", number = 10)
+))
+```
+
+---
+
+The (averaged) RMSE for the 3 main effect models:
+
+```{r}
+set.seed(123)  # for reproducibility
+cv_model2 <- train(
+  form = Sale_Price ~ Gr_Liv_Area + Year_Built, 
+  data = ames_train, 
+  method = "lm",
+  trControl = trainControl(method = "cv", number = 10)
+)
+
+set.seed(123)  # for reproducibility
+cv_model3 <- train(
+  form = Sale_Price ~ ., 
+  data = ames_train, 
+  method = "lm",
+  trControl = trainControl(method = "cv", number = 10)
+)
+
+```
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r}
+#| label: rmse
+#| echo: TRUE
+#| eval: FALSE
+
+cv_model1$results$RMSE
+cv_model2$results$RMSE
+cv_model3$results$RMSE
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| label: rmse
+```
+
+:::
+
+::::
+
+Interpret the cv result as:  
+When applied to unseen data, the predictions model 3 makes are, on average, about `r format(cv_model3$results$RMSE, scientific = FALSE)` off from the actual sale price.  
+
+. . . 
+
+<BR>
+Looking at adjusted $R^2$, as I got taught:
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r}
+#| label: rsquared
+#| echo: TRUE
+#| eval: FALSE
+summary(model1)$adj.r.squared
+summary(model2)$adj.r.squared
+summary(model3)$adj.r.squared
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| label: rsquared
+```
+
+:::
+
+::::
+
+Model 3 explains `r scales::percent(summary(model3)$adj.r.squared,accuracy =2)` of the variance in sale price
+
+
+## 4.5 Model concerns
+
+Be sure the assumptions hold: 
+
+- Linear relationship, if not transform
+- Constant variance among residuals (homoscedasticity)
+- No autocorrelation,  errors are independent and uncorrelated
+- More observations than predictors, if not try regularized regression
+- No or little multicollinearity, if not difficult to separate out individual effects variables
+
+## 4.6 Principal component regression
+
+Address multicollinearity for instance by using Principal Components as predictors
+
+. . .
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r}
+#| label: amestune
+#| echo: TRUE
+#| eval: FALSE
+set.seed(123)
+cv_model_pcr <- train(
+  Sale_Price ~ ., 
+  data = ames_train, 
+  method = "pcr",
+  trControl = trainControl(method = "cv",
+                           number = 10),
+  preProcess = c("zv", "center", "scale"),
+  tuneLength = 100)
+
+bestTune <- cv_model_pcr$bestTune[1,1]
+
+ggplot(cv_model_pcr) +
+  geom_vline(xintercept = bestTune,
+             color = "red")
+```
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| label: amestune
+#| fig-height: 6
+```
+
+:::
+
+::::
+
+. . . 
+
+Question I have: 
+- Why useful? It brings RMSE down, but do we get insight in importance of predictors? Different from regular regression?
+- I thought there are max ncol(data) PC's
+
+## Partial least squares
+
+Supervised dimension reduction procedure:  
+- that finds new features
+- that not only captures most information in original features,
+- but **also are related to the response**
+- PLS places highest weight on variables most strongly related to response
+
+. . . 
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r}
+#| label: amespls
+#| echo: TRUE
+#| eval: FALSE
+set.seed(123)
+cv_model_pls <- train(
+  Sale_Price ~ ., 
+  data = ames_train, 
+  method = "pls",
+  trControl = trainControl(method = "cv",
+                           number = 10),
+  preProcess = c("zv", "center", "scale"),
+  tuneLength = 30
+)
+
+bestTune <- cv_model_pls$bestTune[1,1]
+
+ggplot(cv_model_pls) +
+  geom_vline(xintercept = bestTune,
+             color = "red")
+```
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| label: amespls
+#| fig-height: 6
+
+```
+
+:::
+
+::::
+
+## Added, how to see this best PLCmodel
+
+```{r}
+#| echo: TRUE
+the_best_pls <- cv_model_pls$finalModel
+the_best_pls$coefficients
+```
+
+
+## 4.8 Feature interpretation
+
+- Variable importance: identify variables most influential in model
+- LR: often absolute value t-statistic for each parameter
+- Difficult when having interactions and transformations
+- PLS: contribution coefficients weighted proportionally to reduction RSS
+
+. . . 
+
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+Calculate VIP in PLS   
+(100 is most important):
+
+```{r}
+#| label: vippls
+#| echo: TRUE
+#| eval: FALSE
+vip(cv_model_pls, 
+    num_features = 20,
+    method = "model")
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| label: vippls
+```
+
+:::
+
+::::
+
+
+## PDP - partial dependence plots 
+
+- Plot change in average predicted value as specified feature(s) vary over their marginal distribution
+- How fixed change in a predictor relates to fixed linear change in outcome, while taking into account average effect of all other features in model
+- More useful in case of non-linear relationships (chp 16)
+
+. . .  
+
+
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r}
+#| label: plotpdp
+#| echo: TRUE
+#| eval: FALSE
+# This is NOT a ggplot!
+pdp::partial(cv_model_pls,
+             "Gr_Liv_Area", 
+             grid.resolution = 20, 
+             plot = TRUE)
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| label: plotpdp
+```
+
+:::
+
+::::
+
+
+---
+
+![](zen2.gif){fig-alt="GIF inspiring zen" fig-align="center"}
+
+
+## Part II Supervised Learning<BR>Chp 5 Logistic Regression {.center .center-x background-color="#562457"}
+
+Approximate the relationship between a **binary** response variable and a set of predictor variables
+
+## 5.1 Prerequisites
+
+**Libraries**
+
+
+```{r}
+#| echo: TRUE
+
+library(dplyr)    # for data manipulation
+library(ggplot2)  # for graphics
+library(caret)    # for cross-validation, etc.
+library(rsample)  # necessary for initial_split
+library(vip)      # variable importance
+# library(modeldata)
+# library(broom)
+# library(ROCR)
+```
+
+. . .  
+
+<BR>
+
+**Code for the data, from previous chps**
+
+```{r}
+#| echo: TRUE
+# attrition <- rsample::attrition # line in book chp1  no longer works
+
+# data are moved into the `modeldata` package
+df <- modeldata::attrition %>%
+  # make all factors unordered
+  mutate_if(is.ordered, factor, ordered = FALSE)
+
+set.seed(123)  # for reproducibility
+churn_split <- initial_split(df, prop = .7, strata = "Attrition")
+churn_train <- training(churn_split)
+churn_test  <- testing(churn_split)
+```
+
+## 5.2 Why logistic regression
+
+```{r}
+p1 <- ISLR::Default %>%
+  mutate(prob = ifelse(default == "Yes", 1, 0)) %>%
+  ggplot(aes(balance, prob)) +
+  geom_point(alpha = .15) +
+  geom_smooth(method = "lm") +
+  ggtitle("Linear regression model fit") +
+  xlab("Balance") +
+  ylab("Probability of Default") +
+  annotate("text", x = 1000, y = 0.5, 
+           label = "NOT OK", color = "red", size = 7)
+
+p2 <- ISLR::Default %>%
+  mutate(prob = ifelse(default == "Yes", 1, 0)) %>%
+  ggplot(aes(balance, prob)) +
+  geom_point(alpha = .15) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  ggtitle("Logistic regression model fit") +
+  xlab("Balance") +
+  ylab("Probability of Default") +
+   annotate("text", x = 1000, y = 0.5, 
+           label = "OK", color = "darkgreen", size = 7)
+
+p1 + p2
+
+```
+
+---
+
+The formula of a sigmoid function looks complicated:
+
+
+. . . 
+
+
+$$
+p(X) = \frac {e^{\beta_0+\beta_1X}}{1+e^{\beta_0+\beta_1X}} 
+$$
+
+. . . 
+
+Look at odds:  
+
+. . . 
+
+$$
+\frac {p(X)} {1-p(X)} = \frac {e^{\beta_0+\beta_1X}}{1+e^{\beta_0+\beta_1X}} /  \frac {1}{1+e^{\beta_0+\beta_1X}} = e^{\beta_0+\beta_1X}
+$$
+
+. . .
+
+And then take log, and call that logit (the log of the odds):
+
+. . . 
+
+$$
+log  \left( \frac {p(X)} {1-p(X)}\right) = log \left(e^{\beta_0+\beta_1X} \right) = \beta_0+\beta_1X
+$$
+
+## 5.3 Simple logistic regression {.smaller}
+
+Models are calculated using Maximum Likelihood
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r}
+#| echo: TRUE
+model1 <- glm(Attrition ~ MonthlyIncome,
+              family = "binomial", 
+              data = churn_train)
+```
+
+```{r}
+#| echo: TRUE
+broom::tidy(model1)[,1:2] %>%
+  knitr::kable(booktabs = TRUE)
+```
+
+Increase of 1 unit in MonthlyIncome,  
+
+- logit of attrition 0.000139 less
+- odds of attrition multiply by exp(-0.000139) = 0.99986
+- hence odds smaller, hence probability smaller
+
+
+:::
+
+::: {.column .fragment width="50%"}
+
+```{r, fig.height = 8}
+churn_train2 <- churn_train %>%
+  mutate(prob = ifelse(Attrition == "Yes", 1, 0))
+
+ggplot(data = churn_train2,
+       aes(x = MonthlyIncome, y = prob )) +
+  geom_point(alpha = 0.15)+
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  labs(x = "Monthly Income",
+       y = "Probability of Attrition") +
+  theme_minimal(base_size = 14) +
+  theme(panel.background = element_rect(color = "grey", size = 2))
+```
+
+
+:::
+
+::::
+
+---
+
+## Confidence interval for coefficient
+
+```{r}
+#| echo: TRUE
+tidy(model1)
+```
+
+<BR>
+
+. . . 
+
+```{r}
+#| echo: TRUE
+# for the logit coefficients:
+confint(model1)
+```
+
+<BR>
+
+. . . 
+
+```{r}
+#| echo: TRUE
+# for the odds coefficients:
+exp(confint(model1))
+```
+
+
+## 5.4 Multiple logistic regression
+
+Explaining attrition from MonthlyIncome and Overtime:
+
+```{r}
+#| echo: true
+model3 <- glm(
+  Attrition ~ MonthlyIncome + OverTime,
+  family = "binomial", 
+  data = churn_train
+  )
+
+broom::tidy(model3)
+```
+
+---
+
+```{r}
+#| echo: true
+#| fig-height: 5
+churn_train3 <- # different from book:
+  # adds column "pred" to data
+  # with probs according to model 3
+  modelr::add_predictions(churn_train, model = model3, type = "response") %>%
+  mutate(prob = ifelse(Attrition == "Yes", 1, 0))
+
+# also different from book
+ggplot(churn_train3, 
+       aes(x = MonthlyIncome, color = OverTime)) +
+  geom_point(aes(y = prob), alpha = .15) +       # observations
+  geom_point(aes(y = pred)) +                    # predictions
+  labs(title = "Predicted probabilities for model3",
+       x = "Monthly Income",
+       y = "Probability of Attrition")
+```
+
+
+
+
+## 5.5 Assessing model accuracy - how well models predict
+
+:::: {.columns}
+
+::: {.column}
+
+
+`Attrition ~ MonthlyIncome`
+```{r}
+#| label: attr_conf1
+#| echo: true
+#| eval: false
+set.seed(123)
+cv_model1 <- train(
+  Attrition ~ MonthlyIncome, 
+  data = churn_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv",
+                           number = 10))
+
+pred_class1 <- predict(cv_model1, 
+                       churn_train)
+
+confusionMatrix(
+  data = relevel(pred_class1,
+                 ref = "Yes"), 
+  reference = 
+    relevel(churn_train$Attrition,
+            ref = "Yes")
+) 
+```
+
+:::
+
+::: {.column .fragment}
+
+`Attrition ~ .`
+```{r}
+#| label: attr_conf3
+#| echo: true
+#| eval: false
+set.seed(123)
+cv_model3 <- train(
+  Attrition ~ ., 
+  data = churn_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv",
+                           number = 10))
+
+pred_class3 <- predict(cv_model3, 
+                       churn_train)
+
+confusionMatrix(
+  data = relevel(pred_class3,
+                 ref = "Yes"), 
+  reference = 
+    relevel(churn_train$Attrition,
+                      ref = "Yes")
+) 
+```
+
+:::
+
+::::
+
+## {.smaller}
+
+:::: {.columns}
+
+::: {.column}
+
+
+`Attrition ~ MonthlyIncome`
+```{r}
+#| label: attr_conf1
+```
+
+:::
+
+::: {.column .fragment}
+
+`Attrition ~ .`
+```{r}
+#| label: attr_conf3 
+```
+
+:::
+
+::::
+
+. . .
+
+
+`No Information Rate : 0.8395`: Predict most common outcome ("No") for all, still accuracy 83.9%.  
+`Accuracy`: P(pred = actual), (TP+TN)/(TP+FP+TN+FN)  
+`Sensitivity` (recall): P(pred = "yes"| actual = "yes"),  TP / (TP + FN)   
+`Specificity`: P(pred = "no"| actual = "no"),  TN / (TN + FP)  
+`Pos Pred Value` (precision): P(actual = "yes"| pred = "yes"),  TP / (TP + FP)  
+`Neg Pred Value`: P(actual = "no"| pred = "no"),  TN / (TN + FN)  
+`Prevalence`: (TP+FN)/(TP+FN+FP+FN) 
+
+## ROC curve  
+
+:::: {.columns}
+
+::: {.column width="60%"}
+```{r}
+#| label: rocr
+#| echo: true
+#| eval: false
+
+library(ROCR)
+
+m1_prob <- predict(cv_model1, 
+       churn_train, type = "prob")$Yes
+m3_prob <- predict(cv_model3, 
+       churn_train, type = "prob")$Yes
+
+# Compute AUC metrics for models
+perf1 <- prediction(m1_prob, 
+                    churn_train$Attrition) %>%
+  performance(measure = "tpr", 
+              x.measure = "fpr")
+perf2 <- prediction(m3_prob, 
+                    churn_train$Attrition) %>%
+  performance(measure = "tpr", 
+              x.measure = "fpr")
+
+plot(perf1, col = "black", lty = 2)
+plot(perf2, add = TRUE, col = "blue")
+legend(0.8, 0.2, legend = c("cv_model1", "cv_model3"),
+       col = c("black", "blue"), lty = 2:1, cex = 0.6)
+```
+
+:::
+
+::: {.column .fragment width="40%"}
+
+```{r}
+#| label: rocr
+#| fig-height: 8
+```
+
+Other options for ROC curves:  
+[https://rviews.rstudio.com/2019/03/01/some-r-packages-for-roc-curves/](https://rviews.rstudio.com/2019/03/01/some-r-packages-for-roc-curves/)  
+
+
+
+::: 
+
+::::
+
+## 5.6 Model concerns
+
+- Also important to check adequacy
+- Concept of residual is difficult
+- Some literature referals
+
+
+## 5.7 Feature interpretation
+
+```{r}
+#| echo: true
+vip(cv_model3, num_features = 20)
+```
+
+- Logistic regression assumes a monotonic linear relationship on logit scale
+- On the probability scale, the relationship will be nonlinear, see PDP's. 
+
+## 5.8 Final thoughts
+
+- Logistic regression suffers also from the many assumptions (i.e. linear relationship of the coefficient, multicollinearity)
+- Often more than two classes to predict (multinomial classification)
+- Future chapters discuss more advanced algorithms for binary and multinomial classification
