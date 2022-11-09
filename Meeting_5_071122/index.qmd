@@ -1,0 +1,801 @@
+---
+title: "Boook club “Hands-On Machine Learning with R” #5"
+subtitle: "Chp7 Splines - Chp 8 KNN"
+author: "[Elena Dudukina](www.elenadudukina.com), [R-Ladies Aarhus](https://twitter.com/rladiesaarhus)"
+format: 
+  rladies-revealjs:
+    footer: "[Hands-On Machine Learning with R](https://bradleyboehmke.github.io/HOML/mars.html)"
+incremental: false
+embed-resources: true
+---
+
+## Chapter 7 Multivariate Adaptive Regression Splines
+
+### The WHAT
+
+-   Multivariate adaptive regression splines (MARS)
+-   Automatically creates a piecewise linear model
+-   Inherently nonlinear
+
+### The WHY
+
+-   Will search for, and discover, nonlinearities and interactions in the data that help maximize predictive accuracy
+
+### The HOW
+
+-   Hinge function
+-   Looks for the single point across the range of X values where two different linear relationships between Y and X achieve the smallest error
+
+## Capturing non-linear relationships
+
+::: columns
+::: {.column width="40%"}
+-   Polynomials
+
+-   Step functions
+
+-   Require specifications by the user
+
+    -   Which variables should have what specific degree of interaction or at what points of a variable $X$ should cut points be made for the step functions
+:::
+
+::: {.column width="60%"}
+![](images/paste-FBE5A058.png){width="100%"}
+:::
+:::
+
+## Multivariate adaptive regression splines (MARS)
+
+::: columns
+::: {.column width="40%"}
+-   Capture the nonlinear relationships in the data by assessing cutpoints (*knots*) similar to step functions
+
+-   The procedure assesses each data point for each predictor as a knot and creates a linear regression model with the candidate feature(s)
+
+-   Many knots may have a good fit in training data, but may not generalize to new data
+
+-   Pruning: remove knots that do not contribute to predictive accuracy using, e.g. cross-validation
+:::
+
+::: {.column width="60%"}
+![](images/paste-7F0CB912.png){width="100%"}
+:::
+:::
+
+## Fitting a basic MARS model with earth package
+
+::: panel-tabset
+## Fit a basic MARS model
+
+```{r}
+#| warning: false
+#| echo: true
+library(dplyr)    # for data manipulation
+library(ggplot2)  # for awesome graphics
+library(rsample)  # splitting data
+library(caret)    # for cross-validation, etc.
+library(vip)      # variable importance
+library(modeldata) # ames data
+data(ames)
+
+# Stratified sampling with the rsample package
+set.seed(77654) # I used a different seed than in the book
+split <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  <- training(split)
+ames_test   <- testing(split)
+
+mars1 <- earth::earth(
+  Sale_Price ~ .,  
+  data = ames_train   
+)
+```
+
+## Model summary
+
+```{r}
+#| warning: false
+#| echo: true
+print(mars1)
+# hinge functions produced from the original 307 predictors
+summary(mars1) %>% .$coefficients %>% head(10)
+```
+:::
+
+## Performance and residual plots
+
+-   Generalized cross-validation (GCV) $R^2$ (solid black line; left-hand y-axis)
+-   Number of terms retained in the model (x-axis)
+-   Number of original predictors (right-hand y-axis)
+
+```{r}
+#| warning: false
+#| echo: true
+plot(mars1, which = 1)
+```
+
+## Interactions between different hinge functions
+
+::: panel-tabset
+## Fit a basic MARS model
+
+```{r}
+#| warning: false
+#| echo: true
+
+# degree = 2: interaction terms between a maximum of two hinge functions (e.g., h(2004-Year_Built)*h(Total_Bsmt_SF-1330)
+mars2 <- earth::earth(
+  Sale_Price ~ .,  
+  data = ames_train,
+  degree = 2
+)
+```
+
+## Results
+
+```{r}
+#| warning: false
+#| echo: true
+# check out the first 10 coefficient terms
+summary(mars2) %>% .$coefficients %>% head(10)
+```
+:::
+
+## Tuning hyperparameters
+
+::: columns
+::: {.column width="50%"}
+-   The maximum degree of interactions
+-   The number of terms retained in the final model
+-   Perform a CV grid search to identify the optimal hyperparameter mix
+:::
+
+::: {.column width="50%"}
+```{r}
+#| warning: false
+#| echo: true
+
+# degree: degree of interactions
+# nprune: number of terms to retain
+
+# create a tuning grid
+hyper_grid <- expand.grid(
+  degree = 1:3, 
+  nprune = seq(2, 100, length.out = 10) %>% floor()
+)
+
+head(hyper_grid)
+```
+:::
+:::
+
+## Tuning hyperparameters with `caret`
+
+::: columns
+::: {.column width="50%"}
+-   Grid search using 10-fold CV
+-   The optimal model's cross-validated RMSE was \$26,817 in the book and \$27,246.61 in this example with different seed
+-   The optimal model retains 56 terms and includes up to 2nd degree interactions in the book and 45 terms and 1 degree interactions with the seed I chose
+:::
+
+::: {.column width="50%"}
+::: panel-tabset
+## Code
+
+```{r}
+#| warning: false
+#| echo: true
+
+# Cross-validated model
+set.seed(123)  # for reproducibility
+cv_mars <- train(
+  x = subset(ames_train, select = -Sale_Price),
+  y = ames_train$Sale_Price,
+  method = "earth",
+  metric = "RMSE",
+  trControl = trainControl(method = "cv", number = 10),
+  tuneGrid = hyper_grid
+)
+```
+
+## Results: best model
+
+```{r}
+#| warning: false
+#| echo: true
+
+cv_mars$bestTune
+
+cv_mars$results %>%
+  filter(nprune == cv_mars$bestTune$nprune, degree == cv_mars$bestTune$degree)
+
+ggplot(cv_mars) # mind different seed
+```
+
+## Stats on all CV
+
+```{r}
+#| warning: false
+#| echo: true
+summary(cv_mars$resample)
+```
+:::
+:::
+:::
+
+## Comparing MARS with other modelling approaches
+
+::: columns
+::: {.column width="50%"}
+```{r}
+#| warning: false
+#| echo: true
+cv_mars$resample
+```
+:::
+
+::: {.column width="50%"}
+![](images/Screenshot%202022-11-06%20at%2017.27.07.png)
+:::
+:::
+
+## Feature interpretation
+
+::: columns
+::: {.column width="40%"}
+-   `earth` has backwards elimination feature selection tool
+-   This tool looks at reductions in the GCV estimate of error as each predictor is added to the model: `value = "gcv"`
+-   MARS automatically includes and excludes terms during the pruning process (automated feature selection)
+-   Feature never included in the final model-\> importance value=0
+-   An alternative: the change in the residual sums of squares (RSS) as terms are added (`value = "rss"`)
+-   No measuring of the impact for particular hinge functions created for a given feature
+:::
+
+::: {.column width="60%"}
+```{r}
+#| warning: false
+#| echo: true
+
+# variable importance plots
+p1 <- vip(cv_mars, num_features = 40, geom = "point", value = "gcv") + ggtitle("GCV")
+p2 <- vip(cv_mars, num_features = 40, geom = "point", value = "rss") + ggtitle("RSS")
+
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+```
+:::
+:::
+
+## Feature interpretation: hinge functions interactions
+
+::: columns
+::: {.column width="50%"}
+-   Investigate interactions
+-   Create partial dependence plots (PDPs) for each feature individually and also together
+
+![](images/paste-460C542D.png){width="100%"}
+:::
+
+::: {.column width="50%"}
+::: panel-tabset
+## Investigate interactions
+
+```{r}
+#| warning: false
+#| echo: true
+
+# extract coefficients, convert to tidy data frame, and filter for interaction terms
+cv_mars$finalModel %>%
+  coef(.) %>%  
+  broom::tidy(.) %>%  
+  filter(stringr::str_detect(names, "\\*"))
+# no interactions with the seed I used
+```
+
+## Partial dependence plots
+
+-   Model found that one knot in each feature provides the best fit
+-   Gr_Liv_Area increases and for newer homes, Sale_Price increases dramatically
+
+```{r}
+#| warning: false
+#| echo: true
+#| eval: false
+
+# Construct partial dependence plots
+p1 <- partial(cv_mars, pred.var = "Gr_Liv_Area", grid.resolution = 10) %>% 
+  autoplot()
+p2 <- partial(cv_mars, pred.var = "Year_Built", grid.resolution = 10) %>% 
+  autoplot()
+p3 <- partial(cv_mars, pred.var = c("Gr_Liv_Area", "Year_Built"), 
+              grid.resolution = 10) %>% 
+  plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, colorkey = TRUE, 
+              screen = list(z = -20, x = -60))
+
+# Display plots side by side
+gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
+```
+:::
+:::
+:::
+
+## Attrition data example
+
+::: columns
+::: {.column width="50%"}
+-   MARS method and algorithm can be extended to handle classification problems and GLMs
+
+```{r}
+#| warning: false
+#| echo: true
+# plot results
+
+df <- attrition %>% mutate_if(is.ordered, factor, ordered = FALSE)
+
+# Create training (70%) and test (30%) sets for the 
+# rsample::attrition data.
+set.seed(123)  # for reproducibility
+churn_split <- initial_split(df, prop = .7, strata = "Attrition")
+churn_train <- training(churn_split)
+churn_test  <- testing(churn_split)
+
+set.seed(123)
+
+# cross validated model
+tuned_mars <- train(
+  x = subset(churn_train, select = -Attrition),
+  y = churn_train$Attrition,
+  method = "earth",
+  trControl = trainControl(method = "cv", number = 10),
+  tuneGrid = hyper_grid
+)
+```
+:::
+
+::: {.column width="50%"}
+```{r}
+#| warning: false
+#| echo: true
+
+# best model
+tuned_mars$bestTune
+
+ggplot(tuned_mars)
+```
+:::
+:::
+
+## Attrition data example: compare MARS vs other approaches
+
+![](images/Screenshot%202022-11-06%20at%2017.30.39.png)
+
+## Take home message for Chapter 7: MARS
+
+-   MARS naturally handles mixed types of predictors (quantitative and qualitative)
+    -   Considers all possible binary partitions of the categories for a qualitative predictor into two groups
+    -   Each group then generates a pair of piecewise indicator functions for the two categories
+-   Needs minimum feature engineering
+    -   Automated feature selection
+    -   Highly correlated predictors do not impede predictive accuracy (chooses the first one it happens to come across when scanning the features)
+-   MARS models is that they're typically slower to train
+
+## Chapter 8 K-Nearest Neighbors
+
+### The WHAT
+
+-   K-nearest neighbor (KNN) is a very simple algorithm in which each observation is predicted based on its "similarity" to other observations
+
+### The WHY
+
+-   Have been successful in a large number of business problems
+-   Useful for preprocessing purposes
+
+### The HOW
+
+-   Memory-based algorithm and cannot be summarized by a closed-form model
+-   Training samples are required at run-time and predictions are made directly from the sample relationships
+
+## Measuring similarity
+
+-   Algorithm identifies $k$ observations that are "similar"/nearest to the new record being predicted and then uses the average response value (regression) or the most common class (classification) of those $k$ observations as the predicted output
+
+![](images/paste-BE708DF7.png){fig-align="center" width="80%"}
+
+## Distance measures
+
+-   Euclidean distance: most common and measures the straight-line distance between two samples (i.e., how the crow flies)
+
+-   Manhattan distance: the point-to-point travel time (i.e., city block) and is commonly used for binary predictors (e.g., one-hot encoded 0/1 indicator variables)
+
+-   Minkowski distance
+
+-   Mahalanobis distance
+
+    ![](images/Screenshot%202022-11-06%20at%2017.35.20.png){fig-align="center" width="85%"}
+
+## Attrition data example
+
+```{r}
+#| warning: false
+#| echo: true
+library(dplyr)      # for data wrangling
+library(ggplot2)    # for awesome graphics
+library(rsample)    # for creating validation splits
+library(recipes)    # for feature engineering
+library(caret)      # for fitting KNN models
+
+# create training (70%) set for the rsample::attrition data.
+attrit <- attrition %>% mutate_if(is.ordered, factor, ordered = FALSE)
+set.seed(123)
+churn_split <- initial_split(attrit, prop = .7, strata = "Attrition")
+churn_train <- training(churn_split)
+
+# import MNIST training data
+mnist <- dslabs::read_mnist()
+names(mnist)
+
+(two_houses <- ames_train[1:2, c("Gr_Liv_Area", "Year_Built")])
+# Euclidean
+dist(two_houses, method = "euclidean")
+
+# Manhattan
+dist(two_houses, method = "manhattan")
+```
+
+## Pre-processing
+
+::: columns
+::: {.column width="50%"}
+-   Euclidean distance is more sensitive to outliers
+-   Most distance measures are sensitive to the scale of the features
+-   Features with different scales bias the distance measures: predictors with the largest values contribute most to the distance between two samples
+-   Standardizing numeric features
+-   All categorical features must be represented numerically (one-hot encoded or encoded using another method (e.g., ordinal encoding))
+-   KNN method is sensitive to noisy predictors (similar samples will have larger magnitudes and variability in distance)
+:::
+
+::: {.column width="50%"}
+```{r}
+#| echo: true
+#| eval: false
+home1
+## # A tibble: 1 x 4
+##   home  Bedroom_AbvGr Year_Built    id
+##   <chr>         <int>      <int> <int>
+## 1 home1             4       2008   423
+home2
+## # A tibble: 1 x 4
+##   home  Bedroom_AbvGr Year_Built    id
+##   <chr>         <int>      <int> <int>
+## 1 home2             2       2008   424
+home3
+## # A tibble: 1 x 4
+##   home  Bedroom_AbvGr Year_Built    id
+##   <chr>         <int>      <int> <int>
+## 1 home3             3       1998     6
+
+# The Euclidean distance between home1 and home3 is larger due to the larger difference in Year_Built with home2
+```
+
+```{r}
+#| echo: true
+#| eval: false
+
+features <- c("Bedroom_AbvGr", "Year_Built")
+
+# distance between home 1 and 2
+dist(rbind(home1[,features], home2[,features]))
+##   1
+## 2 2
+
+# distance between home 1 and 3
+dist(rbind(home1[,features], home3[,features]))
+##          1
+## 2 10.04988
+# Year_Built has a much larger range (1875–2010) than Bedroom_AbvGr (0–8). The difference between 2 and 4 bedrooms is much more important than a 10 year difference in the age of a home
+```
+:::
+:::
+
+## Standardization
+
+```{r}
+#| echo: true
+#| eval: false
+home1_std
+## # A tibble: 1 x 4
+##   home  Bedroom_AbvGr Year_Built    id
+##   <chr>         <dbl>      <dbl> <int>
+## 1 home1          1.38       1.21   423
+home2_std
+## # A tibble: 1 x 4
+##   home  Bedroom_AbvGr Year_Built    id
+##   <chr>         <dbl>      <dbl> <int>
+## 1 home2         -1.03       1.21   424
+home3_std
+## # A tibble: 1 x 4
+##   home  Bedroom_AbvGr Year_Built    id
+##   <chr>         <dbl>      <dbl> <int>
+## 1 home3         0.176      0.881     6
+
+# distance between home 1 and 2
+dist(rbind(home1_std[,features], home2_std[,features]))
+##          1
+## 2 2.416244
+
+# distance between home 1 and 3
+dist(rbind(home1_std[,features], home3_std[,features]))
+##          1
+## 2 1.252547
+```
+
+## Choosing $k$
+
+-   Performance of KNNs is very sensitive to the choice of $k$
+-   low $k$ values overfit and large values underfit
+-   $k$=1 use 1 observation vs $k$=$n$ is mean/most common class (classification) across all training samples as predicted value
+-   High signal data with very few noisy (irrelevant) features, smaller values of $k$ tend to work best
+-   As more irrelevant features are involved, larger values of $k$ are required to smooth out the noise
+-   When using KNN for classification, it is best to assess odd numbers for $k$ to avoid ties in the event there is equal proportion of response levels (i.e. when k = 2 one of the neighbors could have class "0" while the other neighbor has class "1")
+
+## Choosing $k$: example
+
+::: panel-tabset
+## Create blueprint
+
+```{r}
+#| warning: false
+#| echo: true
+
+blueprint <- recipe(Attrition ~ ., data = churn_train) %>%
+  step_nzv(all_nominal()) %>%
+  step_integer(contains("Satisfaction")) %>%
+  step_integer(WorkLifeBalance) %>%
+  step_integer(JobInvolvement) %>%
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE) %>%
+  step_center(all_numeric(), -all_outcomes()) %>%
+  step_scale(all_numeric(), -all_outcomes())
+
+# Create a resampling method
+cv <- trainControl(
+  method = "repeatedcv", 
+  number = 10, 
+  repeats = 5,
+  classProbs = TRUE,                 
+  summaryFunction = twoClassSummary
+)
+
+# Create a hyperparameter grid search
+hyper_grid <- expand.grid(
+  k = floor(seq(1, nrow(churn_train)/3, length.out = 20))
+)
+
+# Fit knn model and perform grid search
+knn_grid <- train(
+  blueprint, 
+  data = churn_train, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "ROC"
+)
+```
+
+## Search grid results
+
+```{r}
+#| warning: false
+#| echo: true
+# search grid results for Attrition training data where 20 values between 1 and 343 are assessed for k
+ggplot(knn_grid)
+```
+:::
+
+## MNIST example
+
+::: panel-tabset
+## Training initial models
+
+-   84 features representing the darkness (0--255) of pixels in images of handwritten numbers (0--9)
+-   KNN models can be severely impacted by irrelevant features
+
+```{r}
+#| warning: false
+#| echo: true
+# training initial models on a random sample of 10,000 rows from the training set
+set.seed(123)
+index <- sample(nrow(mnist$train$images), size = 10000)
+mnist_x <- mnist$train$images[index, ]
+mnist_y <- factor(mnist$train$labels[index])
+```
+
+## Training initial models 2
+
+-   Avoid zero, or near-zero variance features (see Section 3.4).
+-   There are nearly 125 features that have zero variance and many more that have very little variation
+
+```{r}
+#| warning: false
+#| echo: true
+#| fig-width: 4
+#| fig-height: 4
+mnist_x %>%
+  as.data.frame() %>%
+  purrr::map_df(sd) %>%
+  gather(feature, sd) %>%
+  ggplot(aes(sd)) +
+  geom_histogram(binwidth = 1)
+```
+:::
+
+## MNIST example
+
+::: panel-tabset
+## Numbers
+
+-   Images (A)--(C) illustrate typical handwritten numbers from the test set
+-   Image (D) illustrates which features in images have variability
+-   The white - the features that represent the center pixels have regular variability whereas the black exterior - the features representing the edge pixels in have zero or near-zero variability
+
+![](images/paste-A3C80EBC.png)
+
+## Code
+
+-   Add column names to the feature matrices as these are required by caret
+-   Perform search grid
+-   Best model used 3 nearest neighbors and provided an accuracy of 93.8%
+
+```{r}
+#| warning: false
+#| echo: true
+# Rename features
+colnames(mnist_x) <- paste0("V", 1:ncol(mnist_x))
+
+# Remove near zero variance features manually
+nzv <- nearZeroVar(mnist_x)
+index <- setdiff(1:ncol(mnist_x), nzv)
+mnist_x <- mnist_x[, index]
+# Use train/validate resampling method
+cv <- trainControl(
+  method = "LGOCV", 
+  p = 0.7,
+  number = 1,
+  savePredictions = TRUE
+)
+# Create a hyperparameter grid search. Hyperparameter grid search assesses 13 k values between 1–25
+hyper_grid <- expand.grid(k = seq(3, 25, by = 2))
+# Execute grid search
+knn_mnist <- train(
+  mnist_x,
+  mnist_y,
+  method = "knn",
+  tuneGrid = hyper_grid,
+  preProc = c("center", "scale"),
+  trControl = cv
+)
+```
+
+## Results
+
+```{r}
+#| warning: false
+#| echo: true
+#| 
+ggplot(knn_mnist)
+```
+:::
+
+## MNIST example
+
+-   The most common incorrectly predicted digit is 1 (lowest specificity)
+
+```{r}
+#| warning: false
+#| echo: true
+
+# Create confusion matrix
+cm <- confusionMatrix(knn_mnist$pred$pred, knn_mnist$pred$obs)
+cm$byClass[, c(1:2, 11)]  # sensitivity, specificity, & accuracy
+```
+
+## MNIST example: Feature importance for KNNs
+
+::: panel-tabset
+## Steps
+
+-   Plot these results to get an understanding of what pixel features are driving our results
+-   The most influential features lie around the edges of numbers (outer white circle) and along the very center
+
+## VI
+
+```{r}
+#| warning: false
+#| echo: true
+
+# Top 20 most important features
+vi <- varImp(knn_mnist)
+vi
+
+# Get median value for feature importance
+imp <- vi$importance %>%
+  tibble::rownames_to_column(var = "feature") %>%
+  gather(response, imp, -feature) %>%
+  group_by(feature) %>%
+  summarize(imp = median(imp))
+```
+
+## Make a tibble
+
+```{r}
+#| warning: false
+#| echo: true
+# Create tibble for all edge pixels
+edges <- tibble::tibble(
+  feature = paste0("V", nzv),
+  imp = 0
+)
+
+# Combine and plot
+imp <- rbind(imp, edges) %>%
+  mutate(ID  = as.numeric(stringr::str_extract(feature, "\\d+"))) %>%
+  arrange(ID)
+image(matrix(imp$imp, 28, 28), col = gray(seq(0, 1, 0.05)), 
+      xaxt="n", yaxt="n")
+```
+:::
+
+## MNIST example: correctly vs incorrectly classified predictions
+
+::: panel-tabset
+## Code
+
+```{r}
+#| warning: false
+#| echo: true
+
+# Get a few accurate predictions
+set.seed(9)
+good <- knn_mnist$pred %>%
+  filter(pred == obs) %>%
+  sample_n(4)
+
+# Get a few inaccurate predictions
+set.seed(9)
+bad <- knn_mnist$pred %>%
+  filter(pred != obs) %>%
+  sample_n(4)
+
+combine <- bind_rows(good, bad)
+
+# Get original feature set with all pixel features
+set.seed(123)
+index <- sample(nrow(mnist$train$images), 10000)
+X <- mnist$train$images[index,]
+```
+
+## Results
+
+```{r}
+#| warning: false
+#| echo: true
+#| fig-width: 4
+#| fig-height: 6
+# Plot results
+par(mfrow = c(4, 2), mar=c(1, 1, 1, 1))
+layout(matrix(seq_len(nrow(combine)), 4, 2, byrow = FALSE))
+for(i in seq_len(nrow(combine))) {
+  image(matrix(X[combine$rowIndex[i],], 28, 28)[, 28:1], 
+        col = gray(seq(0, 1, 0.05)),
+        main = paste("Actual:", combine$obs[i], "  ", 
+                     "Predicted:", combine$pred[i]),
+        xaxt="n", yaxt="n") 
+}
+```
+:::
+
+## Take home message for Chapter 8
+
+-   Simple and intuitive algorithm which with "average to decent predictive power"
+-   Drawback of KNNs is their computation time (increases by $n*p$for each observation)
+-   Lazy learner: requires the model be run at prediction time which limits their use for real-time modeling
+-   Rarely provide the best predictive performance
+-   Feature engineering and in data cleaning and preprocessing
+    -   KNNs may be used to add a local knowledge feature (running a KNN to estimate the predicted output or class and using predicted value as a new feature for downstream modeling)
