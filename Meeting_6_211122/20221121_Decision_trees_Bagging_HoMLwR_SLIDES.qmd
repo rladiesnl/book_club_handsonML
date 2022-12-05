@@ -1,0 +1,352 @@
+---
+title: "Chapter 9 - Decision trees<BR>Chapter 10 - Bagging"
+subtitle: "Hands-on Machine Learning with R<BR>Boookclub R-Ladies Utrecht and R-Ladies Den Bosch"
+author: "[Veerle van Son](https://mastodon.online/@veerlevanson)"
+format: 
+  rladies-revealjs:
+    slide-number: true
+pdf-max-pages-per-slide: 1
+incremental: false
+self-contained: true
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+## Let's get started :) {.smaller}
+
+```{r, warning=FALSE}
+library(fontawesome)
+library(patchwork)
+```
+
+-   Organized by [\@RLadiesUtrecht](https://twitter.com/RLadiesUtrecht)
+    and [\@RLadiesDenBosch](https://twitter.com/RLadiesDenBosch)
+-   Meet-ups every 2 weeks on ["Hands-On Machine Learning with
+    R"](https://bradleyboehmke.github.io/HOML/)\
+    by Bradley Boehmke and Brandon Greenwell
+-   No session recording, but we will publish the slides and notes
+-   We use HackMD for making shared notes and for the registry:<BR>
+    [HackMD notes chapters 9 &
+    10](https://hackmd.io/k1dc2CNtSp28iuXGKH8pXw?both){.uri}
+-   Please keep mic off during presentation. Nice to have camera on and
+    participate to make the meeting more interactive.
+-   Questions? Raise hand / write question in HackMD or in chat
+-   Remember presenters are not necessarily also subject experts
+    `r fa("face-smile", fill = "purple")`
+-   Remember the [R-Ladies code of
+    conduct](https://rladies.org/code-of-conduct/).\
+    In summary, please be nice to each other and help us make an
+    **inclusive** meeting! `r fa("heart", fill = "purple")`
+
+## What did we discuss so far? {.smaller}
+
+-   Intro (Chapter 1 & 2) - Gerbrich Ferdinands
+
+-   Feature & Target Engineering (Chapter 3) - Ale Segura
+
+-   Linear & Logistic regression (Chapter 4 & 5) - Martine Jansen
+
+-   Regularized regression (Chapter 6) - Marianna Sebő
+
+-   MARS & K-nearest neighbors (Chapter 7 & 8) - Elena Dudukina
+
+    ![](images/paste-43DB3D7A.png){fig-align="right" width="43%"}
+
+## Chapter 9 - Decision trees {.center .center-x background-color="#562457"}
+
+## Decision trees {.incremental}
+
+-   Make predictions by asking simple questions about features
+
+-   Non-parametric, similar responses are grouped by **splitting rules**
+
+-   Easy to interpret and visualize with **tree diagrams**
+
+-   Downside: often perform worse than more complex algorithms
+
+![](images/paste-C1326347.png){fig-align="center" width="50%"}
+
+## Terminology
+
+![](images/decision-tree-terminology.png)
+
+## CART {.incremental}
+
+-   ***C***lassification ***a***nd ***r***egression ***t***ree
+
+-   Data is partitioned into similar subgroups
+
+-   Each subgroup (or **node**) is created by asking simple yes/no
+    questions about each feature (e.g., is `age < 18`?)
+
+-   This is done a number of times, until the stopping criteria are
+    reached (eg. maximum depth)
+
+## Regression versus classification
+
+**Regression trees** predict the average response value in a subgroup;
+**classification trees** predict the class that this observation belongs
+to
+
+::: {layout-ncol="2"}
+![](images/depth-3-decision-tree-1.png){width="40%"}
+
+![](images/iris-decision-tree-1.png){width="40%"}
+:::
+
+## Partitioning {.incremental}
+
+-   Binary recursive partitioning
+
+-   Objective at each node: find the "best" feature/split combination
+
+-   The splitting process is then repeated in each of the two regions
+
+-   Features can be used multiple times in the same tree
+
+![](images/verkeersbord-rvv-l06-2-pijlbord-splitsing.png){fig-align="center"
+width="45%"}
+
+## How deep?
+
+![](images/deep-overfit-tree-1.png){fig-align="center"}
+
+## Preventing overfitting
+
+-   Restrict tree depth
+-   Restrict minimum number of observations in terminal nodes
+-   Pruning: make a complex tree first, simplify afterwards
+
+![](images/FSAM8FsXMAArfn3-01.jpg){fig-align="center" width="33%"}
+
+## Bias and variance
+
+![](images/dt-early-stopping-1.png){fig-align="center"}
+
+## Prerequisites
+
+```{r}
+#| echo: TRUE
+#| warning: false
+# Helper packages
+library(dplyr)       # for data wrangling
+library(ggplot2)     # for awesome plotting
+
+# Modeling packages
+library(rsample)     # for sampling the data 
+library(rpart)       # direct engine for decision tree application
+library(caret)       # meta engine for decision tree application
+library(ipred)       # bagging
+
+# Model interpretability packages
+library(rpart.plot)  # for plotting decision trees
+library(vip)         # for feature importance
+library(pdp)         # for feature effects
+```
+
+<BR>
+
+```{r}
+#| echo: TRUE
+ames <- AmesHousing::make_ames()
+set.seed(123)
+split <- initial_split(ames, prop = 0.7,
+                     strata = "Sale_Price")
+ames_train  <- training(split)
+ames_test   <- testing(split)
+```
+
+## Ames housing example
+
+```{r, echo=TRUE}
+ames_dt1 <- rpart(
+  formula = Sale_Price ~ .,
+  data    = ames_train,
+  method  = "anova")
+```
+
+![](images/basic-ames-tree-plot-1.png){fig-align="center"}
+
+<!-- ## Ames housing example (2) -->
+
+<!-- ```{r, fig.align='center'} -->
+
+<!-- plotcp(ames_dt1) -->
+
+<!-- ``` -->
+
+<!-- Error and pruning complexity: Smaller pruning complexity lead to larger -->
+
+<!-- trees. Using the 1-SE rule, a tree size of 10-12 provides optimal cross -->
+
+<!-- validation results. -->
+
+## Feature interpretation
+
+Automated feature selection: uninformative features are not used in the
+model.
+
+```{r}
+
+ames_dt3 <- train(
+  Sale_Price ~ .,
+  data = ames_train,
+  method = "rpart",
+  trControl = trainControl(method = "cv", number = 10),
+  tuneLength = 20
+)
+
+vip(ames_dt3, num_features = 40, bar = FALSE)
+```
+
+## Feature interpretation
+
+```{r}
+# Construct partial dependence plots
+p1 <- partial(ames_dt3, pred.var = "Gr_Liv_Area") %>% autoplot()
+p2 <- partial(ames_dt3, pred.var = "Year_Built") %>% autoplot()
+# p3 <- partial(ames_dt3, pred.var = c("Gr_Liv_Area", "Year_Built")) %>% 
+  # plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, 
+  #             colorkey = TRUE, screen = list(z = -20, x = -60))
+
+# Display plots side by side
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+```
+
+## A real-world example {.nonincremental}
+
+-   From a blog post on my blog [Surrounded by
+    Data](https://surroundedbydata.netlify.app/post/boekenweek/) (in
+    Dutch)
+
+![](images/Decision_tree_inkscape.png)
+
+## Decision trees: pros
+
+-   Easy to explain, visually appealing
+
+-   Require little preprocessing
+
+-   Not sensitive to outliers or missing data
+
+-   Can handle mix of categorical and numeric features
+
+## Decision trees: cons
+
+-   Not the best predictors (other models we've seen so far are better
+    at predicting)
+
+-   Simple yes/no questions result in rigid, non-smooth boundaries
+
+-   Deep trees: low bias, high variance (risk of overfitting)
+
+-   Shallow trees: high bias, low variance (low predictability)
+
+## Chapter 10 - Bagging {.center .center-x background-color="#562457"}
+
+## Bagging: bootstrap aggregating
+
+-   Fit multiple prediction models and take the average
+
+-   By model averaging, bagging helps to reduce variance and minimize
+    overfitting
+
+-   Especially useful for unstable, high variance models (where
+    predicted output undergoes major changes in response to small
+    changes in the training data)
+
+## Bagging - method
+
+-   Create *b* bootstrap copies of the original training data
+
+    -   Bootstrapping: make new training sets by taking random samples
+        with replacement
+
+-   Fit your algorithm (commonly referred to as the *base learner*) to
+    each bootstrap sample
+
+-   New predictions are made by averaging predictions of the individual
+    base learners
+
+## Bagging examples
+
+Bagging 50-500 decision trees leads to optimal performance
+
+![](images/bagging-multiple-models-1.png)
+
+## Implementation
+
+-   A single pruned decision tree performs worse than MARS or KNN
+
+-   100 unpruned, bagged decision trees perform better
+
+-   Depending on number of iterations, this can become computationally
+    intense
+
+    -   But: iterations are independent so easy to parallelize
+
+## Packages: {ipred} and {caret}
+
+```{r}
+#| echo: true
+#| warning: false
+#| eval: false
+# make bootstrapping reproducible
+set.seed(123)
+
+# train bagged model (ipred package)
+ames_bag1 <- ipred::bagging(
+  formula = Sale_Price ~ .,
+  data = ames_train,
+  nbagg = 100,  
+  coob = TRUE,
+  control = rpart.control(minsplit = 2, cp = 0)
+)
+```
+
+```{r}
+#| echo: true
+#| warning: false
+#| eval: false
+ames_bag2 <- caret::train(
+  Sale_Price ~ .,
+  data = ames_train,
+  method = "treebag",
+  trControl = trainControl(method = "cv", number = 10),
+  nbagg = 200,  
+  control = rpart.control(minsplit = 2, cp = 0)
+)
+ames_bag2
+```
+
+## How many trees?
+
+![](images/n-bags-plot-1.png)
+
+## Feature importance
+
+![](images/bag-vip-1-01.png)
+
+## Feature importance
+
+![](images/bag-pdp-1.png)
+
+## Bagging: pros and cons
+
+Pro
+
+-   Bagging improves prediction accuracy for high variance (and low
+    bias) models
+
+    -   but: at expense of interpretability and computational speed
+
+Con
+
+-   Tree correlation: despite bootstrapping, many trees will be similar
+    (esp. at the top)
+
+## Thanks! {.center .center-x background-color="#562457"}
+
+We're still looking for presenters, so let us know if you're interested
+:)\
