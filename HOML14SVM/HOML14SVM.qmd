@@ -1,0 +1,429 @@
+---
+title: "Chp 14 Support Vector Machines"
+subtitle: "Hands-on Machine Learning with R<BR>Boookclub R-Ladies Utrecht and R-Ladies Den Bosch"
+author: "[Martine Jansen](https://fosstodon.org/@MartineJansen)"
+format: 
+  rladies-revealjs:
+    slide-number: true
+    pdf-max-pages-per-slide: 1
+    footer: "[RLadies Utrecht & RLadies Den Bosch, Boookclub HOMLR](https://github.com/rladiesnl/book_club_handsonML)"
+    incremental: true
+self-contained: true
+---
+
+```{r}
+library(fontawesome) # 0.4.0
+library(patchwork)
+```
+
+## stRt {.smaller}
+
+-   Organized by [\@RLadiesUtrecht](https://twitter.com/RLadiesUtrecht) and [\@RLadiesDenBosch](https://twitter.com/RLadiesDenBosch)
+-   Meet-ups every 2 weeks on ["Hands-On Machine Learning with R"](https://bradleyboehmke.github.io/HOML/)\
+    by Bradley Boehmke and Brandon Greenwell
+-   No session recording!But we will publish the slides and notes!
+-   We use HackMD for making shared notes and for the registry:<BR> <https://hackmd.io/rGu7xw2bRS-lm8lq7-wvXw>
+-   Please keep mic off during presentation. Nice to have camera on and participate to make the meeting more interactive.
+-   Questions? Raise hand / write question in HackMD or in chat
+-   Remember presenters are not necessarily also subject experts `r fa("smile", fill = "purple")`
+-   Remember the [R-Ladies code of conduct](https://rladies.org/code-of-conduct/).\
+    In summary, please be nice to each other and help us make an **inclusive** meeting! `r fa("heart", fill = "purple")`
+
+## Support Vector Machines
+
+-   Supervised Learning Algorithm
+-   Binary classification by means of separating hyperplane
+-   Can be extended to more than two classes
+-   Can also be used for regression
+
+## Hyperplane
+
+![](screenprints/fig14_1.png)
+
+-   Object one dimension less than dimensions of space
+-   in d dim: $f(X)=\beta_0 + \beta_1X_1 + \ldots+\beta_pX_p = 0$
+-   $Y \in \{-1,1\}$
+-   $f(X)>0$: point X on one side, $f(X)<0$: point X on other side
+-   $Y_i*f(X_i)>0$, point on correct side of plane
+
+## Hard Margin Classifier
+
+:::: {.columns}
+
+::: {.column width="50%"}
+![](screenprints/fig14_2B.png)
+:::
+
+::: {.column width="50%" .fragment}
+![](screenprints/fig14_3.png)
+:::
+
+::::
+
+
+-   Boundary with maximum separation (2M) between classes
+-   Maximizing distance to closest points from either class
+-   Points on the margin are Support Vectors
+
+## Soft Margin Classifier {.smaller}
+
+-   Sometimes data are separable by hyperplane
+-   HMC not robust for noisy data
+-   Solution:
+    -   allow points in margin or on wrong side hyperplane
+    -   budget for wrong points $C$ (hyperparameter $\rightarrow$ tuning)
+
+. . . 
+
+![](screenprints/fig14_5.png)
+
+## But then this:  
+
+:::: {.columns}
+
+::: {.column width="33%"}
+![](screenprints/fig14_6a.png)
+:::
+
+::: {.column width="33%" .fragment}
+![](screenprints/fig14_6b.png)
+:::
+
+::: {.column width="33%" .fragment}
+![](screenprints/fig14_6c.png)
+:::
+
+::::
+
+-  Enlarge the feature space by adding more features
+-  Here with $X_3 = X_1^2 + X_2^2$, a polynomial function degree 2
+-  With new feature space hyperplane still linear, not so in original feature space
+
+## Support Vector Machines
+
+-  Enlarge feature space in structured way, with *kernels*
+-  Polynomial kernel degree $d$ and scale $\gamma$:
+     -  $K(x_i,x_{i'}) = \gamma(1+\sum_{j=1}^p x_{ij}x_{i'j})^d$
+-  Radial kernel: 
+    -  $K(x_i,x_{i'}) = exp( \gamma \sum_{j=1}^p (x_{ij}-x_{i'j})^2)$, with $\gamma = \frac 1 {2\sigma^2}$
+-  ...
+-  Hyperparameters found with tuning
+-  SVMs are extremely flexible and capable of estimating complex nonlinear decision boundaries
+-  Advice authors: start with radial kernel
+
+## Example  1/n
+
+:::: {.columns}
+
+::: {.column width="52%"}
+```{r}
+#| echo: true
+# Libraries needed
+library(tidyverse)
+library(kernlab)  # fitting SVMs
+library(mlbench)  # ML benchmark data sets
+
+# Simulate data
+set.seed(0841)
+spirals <- as.data.frame(
+  mlbench.spirals(300,
+                  cycles = 2,
+                  sd = 0.09))
+names(spirals) <- c("x1", "x2", "classes")
+head(spirals)
+
+```
+
+
+
+:::
+
+::: {.column width="47%" .fragment}
+
+```{r}
+#| echo: true
+# make a plot
+ggplot(spirals, aes(x = x1, y = x2)) +
+  geom_point(aes(shape = classes,
+                 color = classes),
+             size = 3, alpha = 0.75) +
+  xlab(expression(X[1])) +
+  ylab(expression(X[2])) +
+  xlim(-2, 2) +
+  ylim(-2, 2) +
+  coord_fixed() +
+  theme_bw(base_size = 20) +
+  theme(legend.position = "none")
+ 
+```
+
+:::
+
+::::
+
+
+## Example 2/n  
+
+```{r}
+#| echo: true
+# Fit an SVM using a radial basis function kernel
+spirals_svm <- ksvm(classes ~ x1 + x2, 
+                    data = spirals, 
+                    #Radial Basis kernel "Gaussian":
+                    kernel = "rbfdot",
+                    C = 500, 
+                    prob.model = TRUE)
+```
+
+. . . 
+
+```{r}
+#| echo: true
+spirals_svm
+```
+
+
+## Example 3/n
+
+```{r}
+#| echo: true
+# Grid over which to evaluate decision boundaries
+npts <- 500
+xgrid <- expand.grid(
+  x1 = seq(from = -2, 2, length = npts),
+  x2 = seq(from = -2, 2, length = npts)
+)
+
+# Predicted probabilities (as a two-column matrix)
+prob_svm <- predict(spirals_svm, 
+                    newdata = xgrid,
+                    type = "probabilities")
+
+xgrid2 <- bind_cols(xgrid, prob = prob_svm[,1])
+```
+
+. . .
+
+```{r}
+#| echo: true
+head(xgrid2)
+```
+
+
+## Example 4/n
+
+:::: {.columns}
+
+::: {.column width="50%"}
+```{r}
+#| label: contour
+#| echo: true
+#| eval: false
+# Scatterplots with decision boundaries
+ggplot(spirals, aes(x = x1, y = x2)) +
+  geom_point(aes(shape = classes,
+                 color = classes),
+             size = 3, alpha = 0.75) +
+  xlab(expression(X[1])) +
+  ylab(expression(X[2])) +
+  xlim(-2, 2) +
+  ylim(-2, 2) +
+  coord_fixed() +
+  theme_bw(base_size = 20) +
+  theme(legend.position = "none") +
+  stat_contour(data = xgrid2, 
+               aes(x = x1,
+                   y = x2, 
+                   z = prob), 
+               linewidth = 1,
+               breaks = 0.5,
+               color = "black")
+```
+:::
+
+::: {.column width="50%" .fragment}
+```{r}
+#| label: contour
+#| fig-width: 5
+```
+
+:::
+
+::::
+
+## Extensions
+
+-  **More than two classes**
+    -  One vs all: fit SVM for each class (one class vs the rest), classify to class with largest margin
+    -  One vs one: fit all pairwise svms (1 vs 2, 1 vs 3, ...) and most voted class wins
+-  **Support vector regression**
+    -   find a good fitting hyperplane in a kernel-induced feature space that will have good generalization performance using the original features
+
+
+## Example Job attrition  1/n
+
+-  Intent to predict *Attrition*
+-  Tune and fit an SVM with a radial kernel (hyperparameters \sigma and C)
+-  K-fold cv, can be time consuming
+
+. . .
+
+```{r}
+#| echo: true
+# Load attrition data
+df <- modeldata::attrition %>% 
+  #change all factors to unordered factors
+  mutate_if(is.ordered, factor, ordered = FALSE)
+
+# Create training (70%) and test (30%) sets
+set.seed(123)  # for reproducibility
+library(rsample)
+churn_split <- initial_split(df, prop = 0.7, strata = "Attrition")
+churn_train <- training(churn_split)
+churn_test  <- testing(churn_split)
+```
+
+
+## Example Job attrition  2/n
+
+
+:::: {.columns}
+
+::: {.column width="50%"}
+```{r}
+#| label: jobbplot
+#| echo: true
+#| eval: false
+# Tune an SVM with radial basis kernel
+library(caret)
+set.seed(1854)  # for reproducibility
+churn_svm <- caret::train(
+  Attrition ~ ., 
+  data = churn_train,
+  method = "svmRadial",               
+  preProcess = c("center", "scale"),  
+  trControl = trainControl(method = "cv",
+                           number = 10),
+  tuneLength = 10
+)
+
+# different results than in book?
+ggplot(churn_svm) + 
+  geom_text(aes(label = C),
+            hjust = "inward",
+            nudge_y = -0.001) + 
+  theme_light()
+```
+:::
+
+::: {.column width="50%" .fragment}
+
+```{r}
+#| label: jobbplot
+#| fig-width: 5
+
+```
+
+
+:::
+
+::::
+
+
+##  Example Job attrition  3/n
+
+-  Probabilities is not naturally for SVM, but can be "estimated" 
+
+. . .
+
+```{r}
+#| echo: true
+# Control params for SVM
+ctrl <- trainControl(method = "cv",  number = 10, classProbs = TRUE, 
+                     summaryFunction = twoClassSummary ) # needed for AUC/ROC
+# Tune an SVM
+set.seed(5628)  # for reproducibility
+churn_svm_auc <- train(Attrition ~ ., 
+                       data = churn_train, method = "svmRadial", 
+                       preProcess = c("center", "scale"), 
+                       metric = "ROC",  # area under ROC curve (AUC)
+                       trControl = ctrl, tuneLength = 10)
+
+churn_svm_auc$results %>% round(4)
+```
+
+
+## Feature Interpretation  
+
+-  SVMs do not emit any natural measures of feature importance
+-  We can use `vip()`
+
+. . .
+
+:::: {.columns}
+
+::: {.column width="65%"}
+
+```{r}
+#| label: vipplot
+#| echo: true
+#| eval: false
+# We want reference class "Yes" 
+# Make function returning prob of "Yes" 
+prob_yes <- function(object, newdata) {
+  predict(object, newdata = newdata, type = "prob")[, "Yes"]
+}
+
+set.seed(2827)  # for reproducibility
+vip::vip(churn_svm_auc, 
+         method = "permute",
+         nsim = 5, 
+         train = churn_train, 
+         target = "Attrition", 
+         metric = "auc", 
+         reference_class = "Yes", 
+         pred_wrapper = prob_yes) +
+  theme_bw(base_size = 12)
+```
+
+:::
+
+::: {.column width="35%" .fragment}
+```{r}
+#| label: vipplot
+#| fig-width: 5
+```
+
+:::
+
+::::
+
+
+
+## PDP  
+
+```{r}
+#| label: pdpplot
+#| echo: true
+#| eval: false
+
+ppdp <- function(x){pdp::partial(churn_svm_auc, pred.var = x, which.class = 2,
+                                 prob = TRUE, plot = TRUE, plot.engine = "ggplot2") +
+  coord_flip() + theme_bw(base_size = 12)
+}
+#library(patchwork)
+ppdp("OverTime") +  ppdp("WorkLifeBalance") + ppdp("JobSatisfaction") + 
+  ppdp("JobRole") + plot_layout(ncol = 2)
+
+modeldata::attrition
+
+```
+
+. . .
+
+```{r}
+#| label: pdpplot
+```
+
+
+# The end
