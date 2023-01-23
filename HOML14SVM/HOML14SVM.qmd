@@ -22,7 +22,7 @@ library(patchwork)
 -   Meet-ups every 2 weeks on ["Hands-On Machine Learning with R"](https://bradleyboehmke.github.io/HOML/)\
     by Bradley Boehmke and Brandon Greenwell
 -   No session recording!But we will publish the slides and notes!
--   We use HackMD for making shared notes and for the registry:<BR> <https://hackmd.io/rGu7xw2bRS-lm8lq7-wvXw>
+-   We use HackMD for making shared notes and for the registry:<BR> <https://hackmd.io/3rAbHxj5RqSaUAIE-shY2A>
 -   Please keep mic off during presentation. Nice to have camera on and participate to make the meeting more interactive.
 -   Questions? Raise hand / write question in HackMD or in chat
 -   Remember presenters are not necessarily also subject experts `r fa("smile", fill = "purple")`
